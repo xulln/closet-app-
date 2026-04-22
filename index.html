@@ -153,8 +153,9 @@
                     <button type="button" id="removeBgBtn" onclick="removeBackground()" class="hidden absolute bottom-3 left-3 right-3 py-2 bg-black/80 text-white text-xs font-bold rounded-xl backdrop-blur-sm">
                         ✨ 移除背景
                     </button>
-                    <div id="removeBgLoading" class="hidden absolute inset-0 bg-black/50 flex items-center justify-center">
-                        <div class="text-white text-sm font-bold">处理中...</div>
+                    <div id="removeBgLoading" class="hidden absolute inset-0 bg-black/50 flex flex-col items-center justify-center">
+                        <div class="text-white text-sm font-bold mb-2">处理中...</div>
+                        <button type="button" onclick="cancelRemoveBg()" class="text-white text-xs underline">取消</button>
                     </div>
                 </label>
 
@@ -453,6 +454,12 @@
             });
         }
 
+        // 取消背景移除
+        function cancelRemoveBg() {
+            document.getElementById('removeBgLoading').classList.add('hidden');
+            document.getElementById('removeBgBtn').classList.remove('hidden');
+        }
+
         // 背景移除功能
         async function removeBackground() {
             const preview = document.getElementById('previewImg');
@@ -479,19 +486,33 @@
 
                 console.log('开始调用 remove.bg API...');
 
-                // 使用 CORS 代理
+                // 添加超时处理
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 15000); // 15秒超时
+
+                // 使用 CORS 代理 - 如果失败会提示用户
                 const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
                 const apiUrl = 'https://api.remove.bg/v1.0/removebg';
 
-                // 调用 remove.bg API（带代理）
-                const response = await fetch(proxyUrl + apiUrl, {
-                    method: 'POST',
-                    headers: {
-                        'X-Api-Key': 'NQVCNa8mmqJtfjbYyLZQgh3A',
-                        'Origin': window.location.origin
-                    },
-                    body: formData
-                });
+                let response;
+                try {
+                    response = await fetch(proxyUrl + apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'X-Api-Key': 'NQVCNa8mmqJtfjbYyLZQgh3A'
+                        },
+                        body: formData,
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeoutId);
+                } catch (fetchError) {
+                    clearTimeout(timeoutId);
+                    if (fetchError.name === 'AbortError') {
+                        throw new Error('请求超时，请检查网络连接');
+                    }
+                    // 代理可能不可用，提示用户
+                    throw new Error('网络请求失败。请先去 https://cors-anywhere.herokuapp.com/corsdemo 点击"Request temporary access to the demo server"授权后重试');
+                }
 
                 console.log('API 响应状态:', response.status);
 
