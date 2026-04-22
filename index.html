@@ -143,17 +143,16 @@
             <input type="hidden" id="editId">
 
             <div class="space-y-5 pb-8">
-                <label class="bg-gray-100 rounded-3xl h-44 flex flex-col items-center justify-center cursor-pointer active:bg-gray-200 transition-colors relative overflow-hidden block">
+                <label class="bg-gray-100 rounded-3xl h-44 flex flex-col items-center justify-center cursor-pointer active:bg-gray-200 transition-colors relative overflow-hidden block" id="previewContainer">
                     <input type="file" id="fileInput" class="hidden" accept="image/*" onchange="previewImg(this)">
                     <div id="uploadBox" class="flex flex-col items-center">
                         <svg class="w-8 h-8 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                         <span class="text-xs font-bold text-gray-400">点击上传照片</span>
                     </div>
-                    <img id="previewImg" class="hidden absolute inset-0 w-full h-full object-cover pointer-events-none">
-                    <button type="button" id="adjustImgBtn" onclick="openImageAdjuster()" class="hidden absolute bottom-3 left-3 right-3 py-2 bg-black/80 text-white text-xs font-bold rounded-xl backdrop-blur-sm">
-                        ⚙️ 调整图片
-                    </button>
-                    <button type="button" id="removeBgBtn" onclick="removeBackground()" class="hidden absolute bottom-14 left-3 right-3 py-2 bg-white/90 text-black text-xs font-bold rounded-xl backdrop-blur-sm">
+                    <div id="previewWrapper" class="hidden absolute inset-0 overflow-hidden">
+                        <img id="previewImg" class="absolute cursor-grab active:cursor-grabbing" style="transform-origin: center center;" draggable="false">
+                    </div>
+                    <button type="button" id="removeBgBtn" onclick="removeBackground()" class="hidden absolute bottom-3 left-3 right-3 py-2 bg-white/90 text-black text-xs font-bold rounded-xl backdrop-blur-sm">
                         ✨ 移除背景
                     </button>
                     <div id="removeBgLoading" class="hidden absolute inset-0 bg-black/50 flex flex-col items-center justify-center">
@@ -200,29 +199,6 @@
                 </div>
 
                 <button onclick="saveItem()" class="w-full bg-black text-white py-4 rounded-2xl font-bold active:scale-95 transition-transform shadow-lg">保存</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 图片调整模态框 -->
-    <div id="imageAdjustModal" class="modal" onclick="closeImageAdjustModal()">
-        <div class="modal-box !p-0 !h-[80vh] flex flex-col" onclick="event.stopPropagation()">
-            <div class="flex items-center justify-between p-4 border-b border-gray-100">
-                <h3 class="text-lg font-extrabold">调整图片</h3>
-                <button onclick="closeImageAdjustModal()" class="text-gray-400 font-bold text-sm">关闭</button>
-            </div>
-            <div class="flex-1 relative overflow-hidden bg-gray-50" id="adjustContainer">
-                <img id="adjustImg" class="absolute cursor-move" style="max-width: none; max-height: none;" draggable="false">
-            </div>
-            <div class="p-4 border-t border-gray-100 space-y-4">
-                <div>
-                    <label class="text-xs font-black uppercase tracking-widest text-gray-400 block mb-2">缩放</label>
-                    <input type="range" id="zoomSlider" min="0.5" max="3" step="0.1" value="1" oninput="updateZoom(this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
-                </div>
-                <div class="flex gap-3">
-                    <button onclick="resetAdjust()" class="flex-1 py-3 bg-gray-100 rounded-xl text-sm font-bold text-gray-600">重置</button>
-                    <button onclick="applyAdjust()" class="flex-1 py-3 bg-black text-white rounded-xl text-sm font-bold">应用</button>
-                </div>
             </div>
         </div>
     </div>
@@ -416,12 +392,11 @@
 
             if(imgs[id]) {
                 document.getElementById('previewImg').src = imgs[id];
-                document.getElementById('previewImg').classList.remove('hidden');
+                document.getElementById('previewWrapper').classList.remove('hidden');
                 document.getElementById('uploadBox').classList.add('hidden');
-                document.getElementById('adjustImgBtn').classList.add('hidden'); // 编辑时隐藏调整图片按钮
                 document.getElementById('removeBgBtn').classList.add('hidden'); // 编辑时隐藏移除背景按钮
             } else {
-                document.getElementById('previewImg').classList.add('hidden');
+                document.getElementById('previewWrapper').classList.add('hidden');
                 document.getElementById('uploadBox').classList.remove('hidden');
             }
 
@@ -487,9 +462,8 @@
             document.getElementById('removeBgBtn').classList.remove('hidden');
         }
 
-        // 图片调整功能
-        let adjustState = {
-            img: null,
+        // 图片预览手势缩放功能
+        let imgTransform = {
             scale: 1,
             x: 0,
             y: 0,
@@ -498,170 +472,132 @@
             startY: 0
         };
 
-        function openImageAdjuster() {
-            const preview = document.getElementById('previewImg');
-            if (!preview.src || preview.classList.contains('hidden')) {
-                alert('请先上传图片');
-                return;
-            }
+        function setupImageGestures() {
+            const container = document.getElementById('previewWrapper');
+            const img = document.getElementById('previewImg');
 
-            // 复制图片到调整器
-            const adjustImg = document.getElementById('adjustImg');
-            adjustImg.src = preview.dataset.original || preview.src;
+            if (!container || !img) return;
 
-            // 重置状态
-            adjustState.scale = 1;
-            adjustState.x = 0;
-            adjustState.y = 0;
-            document.getElementById('zoomSlider').value = 1;
+            // 双指缩放
+            let initialScale = 1;
+            let initialDistance = 0;
 
-            // 显示模态框
-            document.getElementById('imageAdjustModal').classList.add('show');
-
-            // 等待图片加载后初始化位置
-            adjustImg.onload = function() {
-                initAdjustPosition();
-                setupDragHandlers();
+            container.ontouchstart = function(e) {
+                if (e.touches.length === 2) {
+                    // 双指缩放开始
+                    initialDistance = Math.hypot(
+                        e.touches[0].pageX - e.touches[1].pageX,
+                        e.touches[0].pageY - e.touches[1].pageY
+                    );
+                    initialScale = imgTransform.scale;
+                } else if (e.touches.length === 1) {
+                    // 单指拖拽开始
+                    imgTransform.isDragging = true;
+                    imgTransform.startX = e.touches[0].clientX - imgTransform.x;
+                    imgTransform.startY = e.touches[0].clientY - imgTransform.y;
+                    img.style.cursor = 'grabbing';
+                }
             };
-        }
 
-        function closeImageAdjustModal() {
-            document.getElementById('imageAdjustModal').classList.remove('show');
-        }
+            container.ontouchmove = function(e) {
+                e.preventDefault();
 
-        function initAdjustPosition() {
-            const container = document.getElementById('adjustContainer');
-            const img = document.getElementById('adjustImg');
+                if (e.touches.length === 2) {
+                    // 双指缩放
+                    const distance = Math.hypot(
+                        e.touches[0].pageX - e.touches[1].pageX,
+                        e.touches[0].pageY - e.touches[1].pageY
+                    );
+                    imgTransform.scale = Math.max(0.5, Math.min(3, initialScale * (distance / initialDistance)));
+                    applyImageTransform();
+                } else if (e.touches.length === 1 && imgTransform.isDragging) {
+                    // 单指拖拽
+                    imgTransform.x = e.touches[0].clientX - imgTransform.startX;
+                    imgTransform.y = e.touches[0].clientY - imgTransform.startY;
+                    applyImageTransform();
+                }
+            };
 
-            // 计算适合容器的初始大小（保持比例）
-            const containerRatio = container.clientWidth / container.clientHeight;
-            const imgRatio = img.naturalWidth / img.naturalHeight;
+            container.ontouchend = function() {
+                imgTransform.isDragging = false;
+                img.style.cursor = 'grab';
+            };
 
-            let displayWidth, displayHeight;
-            if (imgRatio > containerRatio) {
-                displayWidth = container.clientWidth;
-                displayHeight = displayWidth / imgRatio;
-            } else {
-                displayHeight = container.clientHeight;
-                displayWidth = displayHeight * imgRatio;
-            }
-
-            // 设置初始样式
-            img.style.width = displayWidth + 'px';
-            img.style.height = displayHeight + 'px';
-            img.style.left = (container.clientWidth - displayWidth) / 2 + 'px';
-            img.style.top = (container.clientHeight - displayHeight) / 2 + 'px';
-
-            // 保存初始尺寸
-            adjustState.baseWidth = displayWidth;
-            adjustState.baseHeight = displayHeight;
-            adjustState.x = (container.clientWidth - displayWidth) / 2;
-            adjustState.y = (container.clientHeight - displayHeight) / 2;
-        }
-
-        function updateZoom(value) {
-            adjustState.scale = parseFloat(value);
-            applyTransform();
-        }
-
-        function applyTransform() {
-            const img = document.getElementById('adjustImg');
-            const newWidth = adjustState.baseWidth * adjustState.scale;
-            const newHeight = adjustState.baseHeight * adjustState.scale;
-
-            img.style.width = newWidth + 'px';
-            img.style.height = newHeight + 'px';
-            img.style.left = adjustState.x + 'px';
-            img.style.top = adjustState.y + 'px';
-        }
-
-        function setupDragHandlers() {
-            const img = document.getElementById('adjustImg');
-
+            // 鼠标支持
             img.onmousedown = function(e) {
-                adjustState.isDragging = true;
-                adjustState.startX = e.clientX - adjustState.x;
-                adjustState.startY = e.clientY - adjustState.y;
+                imgTransform.isDragging = true;
+                imgTransform.startX = e.clientX - imgTransform.x;
+                imgTransform.startY = e.clientY - imgTransform.y;
                 img.style.cursor = 'grabbing';
             };
 
-            img.ontouchstart = function(e) {
-                adjustState.isDragging = true;
-                const touch = e.touches[0];
-                adjustState.startX = touch.clientX - adjustState.x;
-                adjustState.startY = touch.clientY - adjustState.y;
-            };
-
             document.onmousemove = function(e) {
-                if (!adjustState.isDragging) return;
+                if (!imgTransform.isDragging) return;
                 e.preventDefault();
-                adjustState.x = e.clientX - adjustState.startX;
-                adjustState.y = e.clientY - adjustState.startY;
-                applyTransform();
-            };
-
-            document.ontouchmove = function(e) {
-                if (!adjustState.isDragging) return;
-                e.preventDefault();
-                const touch = e.touches[0];
-                adjustState.x = touch.clientX - adjustState.startX;
-                adjustState.y = touch.clientY - adjustState.startY;
-                applyTransform();
+                imgTransform.x = e.clientX - imgTransform.startX;
+                imgTransform.y = e.clientY - imgTransform.startY;
+                applyImageTransform();
             };
 
             document.onmouseup = function() {
-                adjustState.isDragging = false;
-                img.style.cursor = 'move';
+                imgTransform.isDragging = false;
+                img.style.cursor = 'grab';
             };
 
-            document.ontouchend = function() {
-                adjustState.isDragging = false;
+            // 滚轮缩放
+            container.onwheel = function(e) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                imgTransform.scale = Math.max(0.5, Math.min(3, imgTransform.scale * delta));
+                applyImageTransform();
             };
         }
 
-        function resetAdjust() {
-            adjustState.scale = 1;
-            adjustState.x = (document.getElementById('adjustContainer').clientWidth - adjustState.baseWidth) / 2;
-            adjustState.y = (document.getElementById('adjustContainer').clientHeight - adjustState.baseHeight) / 2;
-            document.getElementById('zoomSlider').value = 1;
-            applyTransform();
+        function applyImageTransform() {
+            const img = document.getElementById('previewImg');
+            img.style.transform = `translate(${imgTransform.x}px, ${imgTransform.y}px) scale(${imgTransform.scale})`;
         }
 
-        function applyAdjust() {
-            const container = document.getElementById('adjustContainer');
-            const img = document.getElementById('adjustImg');
+        function resetImageTransform() {
+            imgTransform.scale = 1;
+            imgTransform.x = 0;
+            imgTransform.y = 0;
+            imgTransform.isDragging = false;
+            applyImageTransform();
+        }
 
-            // 创建 canvas 进行裁剪
+        function getTransformedImageData() {
+            const img = document.getElementById('previewImg');
+            const container = document.getElementById('previewWrapper');
+
+            if (!img.naturalWidth) return null;
+
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
 
-            // 设置输出尺寸（固定正方形）
+            // 输出固定 800x800
             canvas.width = 800;
             canvas.height = 800;
 
-            // 计算裁剪区域（相对于原始图片）
-            const scaleX = img.naturalWidth / (adjustState.baseWidth * adjustState.scale);
-            const scaleY = img.naturalHeight / (adjustState.baseHeight * adjustState.scale);
+            // 计算可见区域的裁剪
+            const containerRect = container.getBoundingClientRect();
+            const scale = imgTransform.scale;
 
-            const sourceX = (-adjustState.x) * scaleX;
-            const sourceY = (-adjustState.y) * scaleY;
-            const sourceWidth = container.clientWidth * scaleX;
-            const sourceHeight = container.clientHeight * scaleY;
+            // 计算相对于原始图片的裁剪区域
+            const sourceScale = img.naturalWidth / (containerRect.width / scale);
+            const sourceX = (-imgTransform.x / scale) * sourceScale;
+            const sourceY = (-imgTransform.y / scale) * sourceScale;
+            const sourceSize = containerRect.width * sourceScale / scale;
 
-            // 绘制图片
+            // 绘制
             ctx.drawImage(
                 img,
-                sourceX, sourceY, sourceWidth, sourceHeight,
-                0, 0, canvas.width, canvas.height
+                Math.max(0, sourceX), Math.max(0, sourceY),
+                Math.min(img.naturalWidth, sourceSize), Math.min(img.naturalHeight, sourceSize),
+                0, 0, 800, 800
             );
 
-            // 保存结果
-            const resultData = canvas.toDataURL('image/jpeg', 0.85);
-            document.getElementById('previewImg').src = resultData;
-            document.getElementById('previewImg').dataset.data = resultData;
-
-            // 关闭模态框
-            closeImageAdjustModal();
+            return canvas.toDataURL('image/jpeg', 0.85);
         }
 
         // 背景移除功能
@@ -848,23 +784,33 @@
                 const img = new Image();
                 img.onload = function() {
                     console.log('Image loaded, size:', img.width, 'x', img.height);
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    const maxW = 800;
-                    const scale = img.width > maxW ? maxW / img.width : 1;
-                    canvas.width = Math.floor(img.width * scale);
-                    canvas.height = Math.floor(img.height * scale);
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    const compressed = canvas.toDataURL('image/jpeg', 0.7);
+                    const previewWrapper = document.getElementById('previewWrapper');
                     const preview = document.getElementById('previewImg');
-                    preview.src = compressed;
-                    preview.classList.remove('hidden');
-                    preview.dataset.data = compressed;
+
+                    // 重置变换状态
+                    resetImageTransform();
+
+                    // 设置图片原始尺寸
+                    preview.src = e.target.result;
+                    preview.style.width = img.width + 'px';
+                    preview.style.height = img.height + 'px';
+
+                    // 居中显示
+                    const containerW = 350; // h-44 = 11rem ≈ 176px, 但容器宽可能不同
+                    const containerH = 176;
+                    imgTransform.x = (containerW - img.width) / 2;
+                    imgTransform.y = (containerH - img.height) / 2;
+                    applyImageTransform();
+
                     preview.dataset.original = e.target.result; // 保存原始图片用于背景移除
+                    previewWrapper.classList.remove('hidden');
                     document.getElementById('uploadBox').classList.add('hidden');
-                    document.getElementById('adjustImgBtn').classList.remove('hidden');
                     document.getElementById('removeBgBtn').classList.remove('hidden');
-                    console.log('preview updated');
+
+                    // 设置手势支持
+                    setupImageGestures();
+
+                    console.log('preview updated with gestures');
                 };
                 img.onerror = function() {
                     alert('图片加载失败，请重试');
@@ -902,8 +848,13 @@
             if(isNew) items.push(item);
             else items = items.map(i => i.id === id ? item : i);
 
-            if(document.getElementById('previewImg').dataset.data) {
-                imgs[id] = document.getElementById('previewImg').dataset.data;
+            // 保存图片（应用手势变换）
+            const previewImg = document.getElementById('previewImg');
+            const transformedData = getTransformedImageData();
+            if(transformedData) {
+                imgs[id] = transformedData;
+            } else if(previewImg.dataset.data) {
+                imgs[id] = previewImg.dataset.data;
             }
 
             saveData();
