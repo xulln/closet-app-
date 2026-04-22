@@ -143,14 +143,16 @@
             <input type="hidden" id="editId">
 
             <div class="space-y-5 pb-8">
-                <label class="bg-gray-100 rounded-3xl h-44 flex flex-col items-center justify-center cursor-pointer active:bg-gray-200 transition-colors relative overflow-hidden block" id="previewContainer">
-                    <input type="file" id="fileInput" class="hidden" accept="image/*" onchange="previewImg(this)">
-                    <div id="uploadBox" class="flex flex-col items-center">
-                        <svg class="w-8 h-8 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                        <span class="text-xs font-bold text-gray-400">点击上传照片</span>
-                    </div>
-                    <div id="previewWrapper" class="hidden absolute inset-0 overflow-hidden">
-                        <img id="previewImg" class="absolute cursor-grab active:cursor-grabbing" style="transform-origin: center center;" draggable="false">
+                <div class="bg-gray-100 rounded-3xl h-44 relative overflow-hidden">
+                    <label class="absolute inset-0 flex flex-col items-center justify-center cursor-pointer active:bg-gray-200 transition-colors" id="uploadLabel">
+                        <input type="file" id="fileInput" class="hidden" accept="image/*" onchange="previewImg(this)">
+                        <div id="uploadBox" class="flex flex-col items-center">
+                            <svg class="w-8 h-8 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            <span class="text-xs font-bold text-gray-400">点击上传照片</span>
+                        </div>
+                    </label>
+                    <div id="previewWrapper" class="hidden absolute inset-0 bg-gray-100 overflow-hidden">
+                        <img id="previewImg" class="w-full h-full object-contain cursor-grab active:cursor-grabbing" style="touch-action: none;" draggable="false">
                     </div>
                     <button type="button" id="removeBgBtn" onclick="removeBackground()" class="hidden absolute bottom-3 left-3 right-3 py-2 bg-white/90 text-black text-xs font-bold rounded-xl backdrop-blur-sm">
                         ✨ 移除背景
@@ -393,11 +395,11 @@
             if(imgs[id]) {
                 document.getElementById('previewImg').src = imgs[id];
                 document.getElementById('previewWrapper').classList.remove('hidden');
-                document.getElementById('uploadBox').classList.add('hidden');
+                document.getElementById('uploadLabel').classList.add('hidden');
                 document.getElementById('removeBgBtn').classList.add('hidden'); // 编辑时隐藏移除背景按钮
             } else {
                 document.getElementById('previewWrapper').classList.add('hidden');
-                document.getElementById('uploadBox').classList.remove('hidden');
+                document.getElementById('uploadLabel').classList.remove('hidden');
             }
 
             onTypeChange();
@@ -786,31 +788,16 @@
                     console.log('Image loaded, size:', img.width, 'x', img.height);
                     const previewWrapper = document.getElementById('previewWrapper');
                     const preview = document.getElementById('previewImg');
+                    const uploadLabel = document.getElementById('uploadLabel');
 
-                    // 重置变换状态
-                    resetImageTransform();
-
-                    // 设置图片原始尺寸
+                    // 显示预览，隐藏上传按钮
                     preview.src = e.target.result;
-                    preview.style.width = img.width + 'px';
-                    preview.style.height = img.height + 'px';
-
-                    // 居中显示
-                    const containerW = 350; // h-44 = 11rem ≈ 176px, 但容器宽可能不同
-                    const containerH = 176;
-                    imgTransform.x = (containerW - img.width) / 2;
-                    imgTransform.y = (containerH - img.height) / 2;
-                    applyImageTransform();
-
-                    preview.dataset.original = e.target.result; // 保存原始图片用于背景移除
+                    preview.dataset.original = e.target.result;
                     previewWrapper.classList.remove('hidden');
-                    document.getElementById('uploadBox').classList.add('hidden');
+                    uploadLabel.classList.add('hidden');
                     document.getElementById('removeBgBtn').classList.remove('hidden');
 
-                    // 设置手势支持
-                    setupImageGestures();
-
-                    console.log('preview updated with gestures');
+                    console.log('preview updated');
                 };
                 img.onerror = function() {
                     alert('图片加载失败，请重试');
