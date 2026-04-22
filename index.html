@@ -150,7 +150,10 @@
                         <span class="text-xs font-bold text-gray-400">点击上传照片</span>
                     </div>
                     <img id="previewImg" class="hidden absolute inset-0 w-full h-full object-cover pointer-events-none">
-                    <button type="button" id="removeBgBtn" onclick="removeBackground()" class="hidden absolute bottom-3 left-3 right-3 py-2 bg-black/80 text-white text-xs font-bold rounded-xl backdrop-blur-sm">
+                    <button type="button" id="adjustImgBtn" onclick="openImageAdjuster()" class="hidden absolute bottom-3 left-3 right-3 py-2 bg-black/80 text-white text-xs font-bold rounded-xl backdrop-blur-sm">
+                        ⚙️ 调整图片
+                    </button>
+                    <button type="button" id="removeBgBtn" onclick="removeBackground()" class="hidden absolute bottom-14 left-3 right-3 py-2 bg-white/90 text-black text-xs font-bold rounded-xl backdrop-blur-sm">
                         ✨ 移除背景
                     </button>
                     <div id="removeBgLoading" class="hidden absolute inset-0 bg-black/50 flex flex-col items-center justify-center">
@@ -197,6 +200,29 @@
                 </div>
 
                 <button onclick="saveItem()" class="w-full bg-black text-white py-4 rounded-2xl font-bold active:scale-95 transition-transform shadow-lg">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图片调整模态框 -->
+    <div id="imageAdjustModal" class="modal" onclick="closeImageAdjustModal()">
+        <div class="modal-box !p-0 !h-[80vh] flex flex-col" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between p-4 border-b border-gray-100">
+                <h3 class="text-lg font-extrabold">调整图片</h3>
+                <button onclick="closeImageAdjustModal()" class="text-gray-400 font-bold text-sm">关闭</button>
+            </div>
+            <div class="flex-1 relative overflow-hidden bg-gray-50" id="adjustContainer">
+                <img id="adjustImg" class="absolute cursor-move" style="max-width: none; max-height: none;" draggable="false">
+            </div>
+            <div class="p-4 border-t border-gray-100 space-y-4">
+                <div>
+                    <label class="text-xs font-black uppercase tracking-widest text-gray-400 block mb-2">缩放</label>
+                    <input type="range" id="zoomSlider" min="0.5" max="3" step="0.1" value="1" oninput="updateZoom(this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="resetAdjust()" class="flex-1 py-3 bg-gray-100 rounded-xl text-sm font-bold text-gray-600">重置</button>
+                    <button onclick="applyAdjust()" class="flex-1 py-3 bg-black text-white rounded-xl text-sm font-bold">应用</button>
+                </div>
             </div>
         </div>
     </div>
@@ -392,6 +418,7 @@
                 document.getElementById('previewImg').src = imgs[id];
                 document.getElementById('previewImg').classList.remove('hidden');
                 document.getElementById('uploadBox').classList.add('hidden');
+                document.getElementById('adjustImgBtn').classList.add('hidden'); // 编辑时隐藏调整图片按钮
                 document.getElementById('removeBgBtn').classList.add('hidden'); // 编辑时隐藏移除背景按钮
             } else {
                 document.getElementById('previewImg').classList.add('hidden');
@@ -458,6 +485,183 @@
         function cancelRemoveBg() {
             document.getElementById('removeBgLoading').classList.add('hidden');
             document.getElementById('removeBgBtn').classList.remove('hidden');
+        }
+
+        // 图片调整功能
+        let adjustState = {
+            img: null,
+            scale: 1,
+            x: 0,
+            y: 0,
+            isDragging: false,
+            startX: 0,
+            startY: 0
+        };
+
+        function openImageAdjuster() {
+            const preview = document.getElementById('previewImg');
+            if (!preview.src || preview.classList.contains('hidden')) {
+                alert('请先上传图片');
+                return;
+            }
+
+            // 复制图片到调整器
+            const adjustImg = document.getElementById('adjustImg');
+            adjustImg.src = preview.dataset.original || preview.src;
+
+            // 重置状态
+            adjustState.scale = 1;
+            adjustState.x = 0;
+            adjustState.y = 0;
+            document.getElementById('zoomSlider').value = 1;
+
+            // 显示模态框
+            document.getElementById('imageAdjustModal').classList.add('show');
+
+            // 等待图片加载后初始化位置
+            adjustImg.onload = function() {
+                initAdjustPosition();
+                setupDragHandlers();
+            };
+        }
+
+        function closeImageAdjustModal() {
+            document.getElementById('imageAdjustModal').classList.remove('show');
+        }
+
+        function initAdjustPosition() {
+            const container = document.getElementById('adjustContainer');
+            const img = document.getElementById('adjustImg');
+
+            // 计算适合容器的初始大小（保持比例）
+            const containerRatio = container.clientWidth / container.clientHeight;
+            const imgRatio = img.naturalWidth / img.naturalHeight;
+
+            let displayWidth, displayHeight;
+            if (imgRatio > containerRatio) {
+                displayWidth = container.clientWidth;
+                displayHeight = displayWidth / imgRatio;
+            } else {
+                displayHeight = container.clientHeight;
+                displayWidth = displayHeight * imgRatio;
+            }
+
+            // 设置初始样式
+            img.style.width = displayWidth + 'px';
+            img.style.height = displayHeight + 'px';
+            img.style.left = (container.clientWidth - displayWidth) / 2 + 'px';
+            img.style.top = (container.clientHeight - displayHeight) / 2 + 'px';
+
+            // 保存初始尺寸
+            adjustState.baseWidth = displayWidth;
+            adjustState.baseHeight = displayHeight;
+            adjustState.x = (container.clientWidth - displayWidth) / 2;
+            adjustState.y = (container.clientHeight - displayHeight) / 2;
+        }
+
+        function updateZoom(value) {
+            adjustState.scale = parseFloat(value);
+            applyTransform();
+        }
+
+        function applyTransform() {
+            const img = document.getElementById('adjustImg');
+            const newWidth = adjustState.baseWidth * adjustState.scale;
+            const newHeight = adjustState.baseHeight * adjustState.scale;
+
+            img.style.width = newWidth + 'px';
+            img.style.height = newHeight + 'px';
+            img.style.left = adjustState.x + 'px';
+            img.style.top = adjustState.y + 'px';
+        }
+
+        function setupDragHandlers() {
+            const img = document.getElementById('adjustImg');
+
+            img.onmousedown = function(e) {
+                adjustState.isDragging = true;
+                adjustState.startX = e.clientX - adjustState.x;
+                adjustState.startY = e.clientY - adjustState.y;
+                img.style.cursor = 'grabbing';
+            };
+
+            img.ontouchstart = function(e) {
+                adjustState.isDragging = true;
+                const touch = e.touches[0];
+                adjustState.startX = touch.clientX - adjustState.x;
+                adjustState.startY = touch.clientY - adjustState.y;
+            };
+
+            document.onmousemove = function(e) {
+                if (!adjustState.isDragging) return;
+                e.preventDefault();
+                adjustState.x = e.clientX - adjustState.startX;
+                adjustState.y = e.clientY - adjustState.startY;
+                applyTransform();
+            };
+
+            document.ontouchmove = function(e) {
+                if (!adjustState.isDragging) return;
+                e.preventDefault();
+                const touch = e.touches[0];
+                adjustState.x = touch.clientX - adjustState.startX;
+                adjustState.y = touch.clientY - adjustState.startY;
+                applyTransform();
+            };
+
+            document.onmouseup = function() {
+                adjustState.isDragging = false;
+                img.style.cursor = 'move';
+            };
+
+            document.ontouchend = function() {
+                adjustState.isDragging = false;
+            };
+        }
+
+        function resetAdjust() {
+            adjustState.scale = 1;
+            adjustState.x = (document.getElementById('adjustContainer').clientWidth - adjustState.baseWidth) / 2;
+            adjustState.y = (document.getElementById('adjustContainer').clientHeight - adjustState.baseHeight) / 2;
+            document.getElementById('zoomSlider').value = 1;
+            applyTransform();
+        }
+
+        function applyAdjust() {
+            const container = document.getElementById('adjustContainer');
+            const img = document.getElementById('adjustImg');
+
+            // 创建 canvas 进行裁剪
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            // 设置输出尺寸（固定正方形）
+            canvas.width = 800;
+            canvas.height = 800;
+
+            // 计算裁剪区域（相对于原始图片）
+            const scaleX = img.naturalWidth / (adjustState.baseWidth * adjustState.scale);
+            const scaleY = img.naturalHeight / (adjustState.baseHeight * adjustState.scale);
+
+            const sourceX = (-adjustState.x) * scaleX;
+            const sourceY = (-adjustState.y) * scaleY;
+            const sourceWidth = container.clientWidth * scaleX;
+            const sourceHeight = container.clientHeight * scaleY;
+
+            // 绘制图片
+            ctx.drawImage(
+                img,
+                sourceX, sourceY, sourceWidth, sourceHeight,
+                0, 0, canvas.width, canvas.height
+            );
+
+            // 保存结果
+            const resultData = canvas.toDataURL('image/jpeg', 0.85);
+            document.getElementById('previewImg').src = resultData;
+            document.getElementById('previewImg').dataset.data = resultData;
+
+            // 关闭模态框
+            closeImageAdjustModal();
         }
 
         // 背景移除功能
@@ -658,6 +862,7 @@
                     preview.dataset.data = compressed;
                     preview.dataset.original = e.target.result; // 保存原始图片用于背景移除
                     document.getElementById('uploadBox').classList.add('hidden');
+                    document.getElementById('adjustImgBtn').classList.remove('hidden');
                     document.getElementById('removeBgBtn').classList.remove('hidden');
                     console.log('preview updated');
                 };
