@@ -157,6 +157,15 @@
                     <select id="itemType" onchange="onTypeChange()" class="w-full rounded-2xl py-4 px-5 text-sm font-bold"></select>
                 </div>
 
+                <div id="categoryTagSection" class="hidden">
+                    <label class="text-xs font-black uppercase tracking-widest text-gray-400 block mb-2">类型</label>
+                    <div class="flex gap-3 mb-3">
+                        <button type="button" onclick="setCategoryTag('服装')" id="catTag-clothes" class="cat-tag flex-1 py-4 bg-gray-100 rounded-xl text-sm font-bold text-gray-500">服装</button>
+                        <button type="button" onclick="setCategoryTag('服装+配饰')" id="catTag-mix" class="cat-tag flex-1 py-4 bg-gray-100 rounded-xl text-sm font-bold text-gray-500">服装+配饰</button>
+                    </div>
+                    <input type="hidden" id="categoryTag" value="">
+                </div>
+
                 <div id="tagSection">
                     <label class="text-xs font-black uppercase tracking-widest text-gray-400 block mb-2">标签</label>
                     <select id="itemStyle" class="w-full rounded-2xl py-4 px-5 text-sm font-bold mb-3">
@@ -265,10 +274,12 @@
         // 渲染
         function render() {
             const filter = document.querySelector('#filterGroup .selected')?.dataset.filter || 'all';
-            const filtered = filter === 'all' ? items : items.filter(i =>
-                filter === 'clothes' ? ['上衣','裤子','裙子','外套','连衣裙','套装'].includes(i.type) :
-                ['包包','鞋子','帽子','首饰','眼镜','腰带'].includes(i.type)
-            );
+            let filtered = items;
+            if (filter === 'clothes') {
+                filtered = items.filter(i => i.categoryTag === '服装');
+            } else if (filter === 'mix') {
+                filtered = items.filter(i => i.categoryTag === '服装+配饰');
+            }
             const grid = document.getElementById('ootdGrid');
             const empty = document.getElementById('ootdEmpty');
             if(filtered.length === 0) { grid.innerHTML = ''; empty.classList.remove('hidden'); }
@@ -284,7 +295,7 @@
                     <button onclick="event.stopPropagation();deleteItem('${item.id}')" class="del-btn">×</button>
                     <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 pt-8 rounded-b-3xl">
                         <p class="text-white text-xs font-bold truncate">${item.name}</p>
-                        <p class="text-white/70 text-[10px]">${item.type} · ${item.style || '-'}</p>
+                        <p class="text-white/70 text-[10px]">${item.categoryTag || item.type} · ${item.style || '-'}</p>
                     </div>
                 </div>`;
         }
@@ -367,6 +378,8 @@
             document.getElementById('itemTemp').value = item.temp || '';
             document.getElementById('itemScene').value = item.scene || '';
             document.getElementById('washNote').value = item.wash || '';
+            document.getElementById('categoryTag').value = item.categoryTag || '';
+            if(item.categoryTag) setCategoryTag(item.categoryTag);
 
             if(imgs[id]) {
                 document.getElementById('previewImg').src = imgs[id];
@@ -395,10 +408,14 @@
 
             // 配饰：只显示上传和分类
             if (isAccessory) {
+                document.getElementById('categoryTagSection').classList.add('hidden');
                 document.getElementById('tagSection').classList.add('hidden');
                 document.getElementById('washSection').classList.add('hidden');
                 return;
             }
+
+            // 衣服：显示类型标签选择（服装/服装+配饰）
+            document.getElementById('categoryTagSection').classList.remove('hidden');
 
             // 衣服：选择"全身"时显示标签，其他选项显示洗涤方式
             document.getElementById('tagSection').classList.toggle('hidden', !isFullBody);
@@ -408,6 +425,16 @@
                 document.getElementById('itemTemp').value = '';
                 document.getElementById('itemScene').value = '';
             }
+        }
+
+        function setCategoryTag(tag) {
+            document.getElementById('categoryTag').value = tag;
+            document.querySelectorAll('.cat-tag').forEach(btn => {
+                btn.classList.toggle('bg-black', btn.textContent === tag);
+                btn.classList.toggle('text-white', btn.textContent === tag);
+                btn.classList.toggle('bg-gray-100', btn.textContent !== tag);
+                btn.classList.toggle('text-gray-500', btn.textContent !== tag);
+            });
         }
 
         function setWash(mode) {
@@ -480,6 +507,7 @@
                 id,
                 name,
                 type: typeValue,
+                categoryTag: document.getElementById('categoryTag').value,
                 style: document.getElementById('itemStyle').value,
                 temp: document.getElementById('itemTemp').value,
                 scene: document.getElementById('itemScene').value,
