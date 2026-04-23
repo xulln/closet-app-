@@ -367,8 +367,9 @@
             closeModal('choiceModal');
             document.getElementById('addTitle').textContent = '添加单品';
             document.getElementById('editId').value = '';
-            document.getElementById('previewImg').classList.add('hidden');
-            document.getElementById('uploadBox').classList.remove('hidden');
+
+            // 清空上次上传的图片
+            clearImage();
 
             const typeSelect = document.getElementById('itemType');
             typeSelect.innerHTML = config[mode].types.map(t => `<option value="${t}">${t}</option>`).join('');
