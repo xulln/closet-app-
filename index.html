@@ -612,6 +612,19 @@
             return canvas.toDataURL('image/jpeg', 0.85);
         }
 
+        // 图片处理
+        function previewImg(input) {
+            console.log('previewImg called', input.files);
+            if(!input.files || !input.files[0]) {
+                console.log('no file selected');
+                return;
+            }
+            const file = input.files[0];
+            console.log('file selected:', file.name, file.type, file.size);
+
+            if(!file.type.startsWith('image/')) {
+                alert('请选择图片文件');
+                return;
             }
 
             const reader = new FileReader();
