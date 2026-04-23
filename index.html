@@ -162,7 +162,7 @@
                         <div class="text-white text-sm font-bold mb-2">处理中...</div>
                         <button type="button" onclick="cancelRemoveBg()" class="text-white text-xs underline">取消</button>
                     </div>
-                </label>
+                </div>
 
                 <div>
                     <label class="text-xs font-black uppercase tracking-widest text-gray-400 block mb-2">分类</label>
@@ -398,6 +398,9 @@
                 document.getElementById('previewWrapper').classList.remove('hidden');
                 document.getElementById('uploadLabel').classList.add('hidden');
                 document.getElementById('removeBgBtn').classList.add('hidden'); // 编辑时隐藏移除背景按钮
+                // 启用手势缩放
+                resetImageTransform();
+                setupImageGestures();
             } else {
                 document.getElementById('previewWrapper').classList.add('hidden');
                 document.getElementById('uploadLabel').classList.remove('hidden');
@@ -814,9 +817,14 @@
                     // 显示预览，隐藏上传按钮
                     preview.src = e.target.result;
                     preview.dataset.original = e.target.result;
+                    preview.classList.remove('hidden');
                     previewWrapper.classList.remove('hidden');
                     uploadLabel.classList.add('hidden');
                     document.getElementById('removeBgBtn').classList.remove('hidden');
+
+                    // 重置并启用手势缩放
+                    resetImageTransform();
+                    setupImageGestures();
 
                     console.log('preview updated');
                 };
