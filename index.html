@@ -151,17 +151,18 @@
                             <span class="text-xs font-bold text-gray-400">点击上传照片</span>
                         </div>
                     </label>
-                    <div id="previewWrapper" class="hidden absolute inset-0 bg-gray-100 overflow-hidden">
-                        <img id="previewImg" class="w-full h-full object-contain cursor-grab active:cursor-grabbing" style="touch-action: none;" draggable="false">
+                    <div id="previewWrapper" class="hidden absolute inset-0 bg-gray-100">
+                        <img id="previewImg" class="w-full h-full" style="object-fit: contain;">
+                        <button type="button" onclick="clearImage()" class="absolute top-2 right-2 w-8 h-8 bg-black/60 text-white rounded-full flex items-center justify-center text-lg font-bold z-10">×</button>
                     </div>
-                    <button type="button" id="removeBgBtn" onclick="removeBackground()" class="hidden absolute bottom-3 left-3 right-3 py-2 bg-white/90 text-black text-xs font-bold rounded-xl backdrop-blur-sm">
+                    <button type="button" id="removeBgBtn" onclick="removeBackground()" class="hidden absolute bottom-3 left-3 right-3 py-2 bg-white/90 text-black text-xs font-bold rounded-xl backdrop-blur-sm z-10">
                         ✨ 移除背景
                     </button>
                     <div id="removeBgLoading" class="hidden absolute inset-0 bg-black/50 flex flex-col items-center justify-center">
                         <div class="text-white text-sm font-bold mb-2">处理中...</div>
                         <button type="button" onclick="cancelRemoveBg()" class="text-white text-xs underline">取消</button>
                     </div>
-                </div>
+                </label>
 
                 <div>
                     <label class="text-xs font-black uppercase tracking-widest text-gray-400 block mb-2">分类</label>
@@ -462,6 +463,26 @@
         function cancelRemoveBg() {
             document.getElementById('removeBgLoading').classList.add('hidden');
             document.getElementById('removeBgBtn').classList.remove('hidden');
+        }
+
+        // 清除/重新选择图片
+        function clearImage() {
+            const previewImg = document.getElementById('previewImg');
+            const previewWrapper = document.getElementById('previewWrapper');
+            const uploadLabel = document.getElementById('uploadLabel');
+            const fileInput = document.getElementById('fileInput');
+
+            // 清空图片
+            previewImg.src = '';
+            previewImg.dataset.original = '';
+
+            // 隐藏预览，显示上传按钮
+            previewWrapper.classList.add('hidden');
+            uploadLabel.classList.remove('hidden');
+            document.getElementById('removeBgBtn').classList.add('hidden');
+
+            // 清空文件输入
+            fileInput.value = '';
         }
 
         // 图片预览手势缩放功能
