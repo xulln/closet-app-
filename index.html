@@ -155,13 +155,6 @@
                         <img id="previewImg" class="w-full h-full" style="object-fit: contain;">
                         <button type="button" onclick="clearImage()" class="absolute top-2 right-2 w-8 h-8 bg-black/60 text-white rounded-full flex items-center justify-center text-lg font-bold z-10">×</button>
                     </div>
-                    <button type="button" id="removeBgBtn" onclick="removeBackground()" class="hidden absolute bottom-3 left-3 right-3 py-2 bg-white/90 text-black text-xs font-bold rounded-xl backdrop-blur-sm z-10">
-                        ✨ 移除背景
-                    </button>
-                    <div id="removeBgLoading" class="hidden absolute inset-0 bg-black/50 flex flex-col items-center justify-center">
-                        <div class="text-white text-sm font-bold mb-2">处理中...</div>
-                        <button type="button" onclick="cancelRemoveBg()" class="text-white text-xs underline">取消</button>
-                    </div>
                 </div>
 
                 <div>
@@ -398,7 +391,6 @@
                 document.getElementById('previewImg').src = imgs[id];
                 document.getElementById('previewWrapper').classList.remove('hidden');
                 document.getElementById('uploadLabel').classList.add('hidden');
-                document.getElementById('removeBgBtn').classList.add('hidden'); // 编辑时隐藏移除背景按钮
                 // 启用手势缩放
                 resetImageTransform();
                 setupImageGestures();
@@ -463,12 +455,6 @@
             });
         }
 
-        // 取消背景移除
-        function cancelRemoveBg() {
-            document.getElementById('removeBgLoading').classList.add('hidden');
-            document.getElementById('removeBgBtn').classList.remove('hidden');
-        }
-
         // 清除/重新选择图片
         function clearImage() {
             const previewImg = document.getElementById('previewImg');
@@ -483,7 +469,6 @@
             // 隐藏预览，显示上传按钮
             previewWrapper.classList.add('hidden');
             uploadLabel.classList.remove('hidden');
-            document.getElementById('removeBgBtn').classList.add('hidden');
 
             // 清空文件输入
             fileInput.value = '';
@@ -627,182 +612,6 @@
             return canvas.toDataURL('image/jpeg', 0.85);
         }
 
-        // 背景移除功能
-        async function removeBackground() {
-            const preview = document.getElementById('previewImg');
-            const originalData = preview.dataset.original;
-
-            if (!originalData) {
-                alert('请先上传图片');
-                return;
-            }
-
-            // 显示加载状态
-            document.getElementById('removeBgLoading').classList.remove('hidden');
-            document.getElementById('removeBgBtn').classList.add('hidden');
-
-            try {
-                // 将 base64 转换为 blob
-                const base64Response = await fetch(originalData);
-                const blob = await base64Response.blob();
-
-                // 创建 FormData
-                const formData = new FormData();
-                formData.append('image_file', blob, 'image.jpg');
-                formData.append('size', 'auto');
-
-                console.log('开始调用 remove.bg API...');
-
-                // 添加超时处理
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 15000); // 15秒超时
-
-                // 使用 CORS 代理 - 如果失败会提示用户
-                const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-                const apiUrl = 'https://api.remove.bg/v1.0/removebg';
-
-                let response;
-                try {
-                    response = await fetch(proxyUrl + apiUrl, {
-                        method: 'POST',
-                        headers: {
-                            'X-Api-Key': 'NQVCNa8mmqJtfjbYyLZQgh3A'
-                        },
-                        body: formData,
-                        signal: controller.signal
-                    });
-                    clearTimeout(timeoutId);
-                } catch (fetchError) {
-                    clearTimeout(timeoutId);
-                    if (fetchError.name === 'AbortError') {
-                        throw new Error('请求超时，请检查网络连接');
-                    }
-                    // 代理可能不可用，提示用户
-                    throw new Error('网络请求失败。请先去 https://cors-anywhere.herokuapp.com/corsdemo 点击"Request temporary access to the demo server"授权后重试');
-                }
-
-                console.log('API 响应状态:', response.status);
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('API 错误:', errorText);
-                    throw new Error('背景移除失败: ' + response.status);
-                }
-
-                // 获取处理后的图片
-                const resultBlob = await response.blob();
-                console.log('获取到结果图片, 大小:', resultBlob.size);
-                const resultUrl = URL.createObjectURL(resultBlob);
-
-                // 转换为 base64 并压缩
-                const img = new Image();
-                img.onload = function() {
-                    // 创建临时 canvas 分析人物位置
-                    const tempCanvas = document.createElement('canvas');
-                    const tempCtx = tempCanvas.getContext('2d');
-                    tempCanvas.width = img.width;
-                    tempCanvas.height = img.height;
-                    tempCtx.drawImage(img, 0, 0);
-
-                    // 获取像素数据
-                    const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-                    const data = imageData.data;
-
-                    // 查找人物边界（非透明像素）
-                    let minX = tempCanvas.width, minY = tempCanvas.height;
-                    let maxX = 0, maxY = 0;
-                    let hasContent = false;
-
-                    for (let y = 0; y < tempCanvas.height; y++) {
-                        for (let x = 0; x < tempCanvas.width; x++) {
-                            const alpha = data[(y * tempCanvas.width + x) * 4 + 3];
-                            if (alpha > 10) { // 透明度大于10视为人物
-                                hasContent = true;
-                                minX = Math.min(minX, x);
-                                minY = Math.min(minY, y);
-                                maxX = Math.max(maxX, x);
-                                maxY = Math.max(maxY, y);
-                            }
-                        }
-                    }
-
-                    // 计算人物中心
-                    let centerX, centerY, cropSize;
-                    if (hasContent) {
-                        centerX = (minX + maxX) / 2;
-                        centerY = (minY + maxY) / 2;
-                        // 裁剪区域为人物区域的外接正方形
-                        const contentWidth = maxX - minX;
-                        const contentHeight = maxY - minY;
-                        cropSize = Math.max(contentWidth, contentHeight) * 1.2; // 增加20%边距
-                        // 确保不超出图片边界
-                        cropSize = Math.min(cropSize, Math.min(img.width, img.height));
-                    } else {
-                        // 如果没有检测到人物，使用图片中心
-                        centerX = img.width / 2;
-                        centerY = img.height / 2;
-                        cropSize = Math.min(img.width, img.height);
-                    }
-
-                    // 计算裁剪起点（以人物为中心）
-                    let cropX = centerX - cropSize / 2;
-                    let cropY = centerY - cropSize / 2;
-
-                    // 边界检查
-                    cropX = Math.max(0, Math.min(cropX, img.width - cropSize));
-                    cropY = Math.max(0, Math.min(cropY, img.height - cropSize));
-
-                    // 创建最终 canvas
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    canvas.width = 800;
-                    canvas.height = 800;
-
-                    // 填充白色背景
-                    ctx.fillStyle = '#FFFFFF';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                    // 以人物为中心绘制图片
-                    ctx.drawImage(img, cropX, cropY, cropSize, cropSize, 0, 0, 800, 800);
-
-                    const finalData = canvas.toDataURL('image/jpeg', 0.8);
-                    preview.src = finalData;
-                    preview.dataset.data = finalData;
-
-                    // 隐藏加载状态
-                    document.getElementById('removeBgLoading').classList.add('hidden');
-
-                    // 释放临时 URL
-                    URL.revokeObjectURL(resultUrl);
-
-                    console.log('背景移除完成，人物已居中');
-                };
-                img.onerror = function() {
-                    throw new Error('图片处理失败');
-                };
-                img.src = resultUrl;
-
-            } catch (error) {
-                console.error('背景移除失败:', error);
-                alert('背景移除失败: ' + error.message + '\n\n提示: 由于浏览器安全限制，可能需要使用电脑浏览器或添加 CORS 代理');
-                document.getElementById('removeBgLoading').classList.add('hidden');
-                document.getElementById('removeBgBtn').classList.remove('hidden');
-            }
-        }
-
-        // 图片处理
-        function previewImg(input) {
-            console.log('previewImg called', input.files);
-            if(!input.files || !input.files[0]) {
-                console.log('no file selected');
-                return;
-            }
-            const file = input.files[0];
-            console.log('file selected:', file.name, file.type, file.size);
-
-            if(!file.type.startsWith('image/')) {
-                alert('请选择图片文件');
-                return;
             }
 
             const reader = new FileReader();
@@ -821,7 +630,6 @@
                     preview.classList.remove('hidden');
                     previewWrapper.classList.remove('hidden');
                     uploadLabel.classList.add('hidden');
-                    document.getElementById('removeBgBtn').classList.remove('hidden');
 
                     // 重置并启用手势缩放
                     resetImageTransform();
