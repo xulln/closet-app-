@@ -210,8 +210,9 @@
         // 数据存储
         const DB_KEY = 'closet_data_v1';
         const IMG_KEY = 'closet_imgs_v1';
-        const ORIGINAL_IMG_KEY = 'closet_original_imgs_v1';  // 存储原始图片用于重新编辑
-        let items = [], imgs = {}, originalImgs = {};
+        const ORIGINAL_IMG_KEY = 'closet_original_imgs_v1';  // 存储原始图片
+        const IMG_TRANSFORM_KEY = 'closet_img_transforms_v1'; // 存储裁剪参数
+        let items = [], imgs = {}, originalImgs = {}, imgTransforms = {};
 
         const config = {
             clothes: { types: ['全身','上衣','裤子','裙子','外套','连衣裙','套装'], icon: '👔' },
@@ -235,13 +236,15 @@
                 items = JSON.parse(localStorage.getItem(DB_KEY) || '[]');
                 imgs = JSON.parse(localStorage.getItem(IMG_KEY) || '{}');
                 originalImgs = JSON.parse(localStorage.getItem(ORIGINAL_IMG_KEY) || '{}');
-            } catch(e) { items = []; imgs = {}; originalImgs = {}; }
+                imgTransforms = JSON.parse(localStorage.getItem(IMG_TRANSFORM_KEY) || '{}');
+            } catch(e) { items = []; imgs = {}; originalImgs = {}; imgTransforms = {}; }
         }
 
         function saveData() {
             localStorage.setItem(DB_KEY, JSON.stringify(items));
             localStorage.setItem(IMG_KEY, JSON.stringify(imgs));
             localStorage.setItem(ORIGINAL_IMG_KEY, JSON.stringify(originalImgs));
+            localStorage.setItem(IMG_TRANSFORM_KEY, JSON.stringify(imgTransforms));
         }
 
         function exportData() {
@@ -403,17 +406,25 @@
             document.getElementById('categoryTag').value = item.categoryTag || '';
             if(item.categoryTag) setCategoryTag(item.categoryTag);
 
-            // 编辑时加载原始图片（如果有），否则使用裁剪后的图片
+            // 编辑时加载原始图片，并应用之前保存的裁剪参数
             const imgToEdit = originalImgs[id] || imgs[id];
-            console.log('编辑物品:', id, '原始图片存在:', !!originalImgs[id], '使用图片:', imgToEdit === originalImgs[id] ? '原始' : '裁剪后');
             if(imgToEdit) {
                 const previewImg = document.getElementById('previewImg');
                 previewImg.src = imgToEdit;
-                previewImg.dataset.original = originalImgs[id] || imgToEdit;  // 保存原始图片引用
+                previewImg.dataset.original = originalImgs[id] || imgToEdit;
                 document.getElementById('previewWrapper').classList.remove('hidden');
                 document.getElementById('uploadLabel').classList.add('hidden');
-                // 重置变换状态，从原始图片开始编辑
-                resetImageTransform();
+
+                // 恢复之前保存的裁剪参数（如果有）
+                if(imgTransforms[id]) {
+                    imgTransform.scale = imgTransforms[id].scale;
+                    imgTransform.x = imgTransforms[id].x;
+                    imgTransform.y = imgTransforms[id].y;
+                } else {
+                    // 没有保存的参数则重置
+                    resetImageTransform();
+                }
+                applyImageTransform();
                 setupImageGestures();
             } else {
                 document.getElementById('previewWrapper').classList.add('hidden');
@@ -742,6 +753,12 @@
                 if(previewImg.dataset.original) {
                     originalImgs[id] = previewImg.dataset.original;
                 }
+                // 保存裁剪参数，用于编辑时恢复状态
+                imgTransforms[id] = {
+                    scale: imgTransform.scale,
+                    x: imgTransform.x,
+                    y: imgTransform.y
+                };
             } else if(previewImg.dataset.data) {
                 imgs[id] = previewImg.dataset.data;
             }
@@ -756,6 +773,7 @@
             items = items.filter(i => i.id !== id);
             delete imgs[id];
             delete originalImgs[id];  // 同时删除原始图片
+            delete imgTransforms[id]; // 同时删除裁剪参数
             saveData();
             render();
         }
