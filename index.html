@@ -277,12 +277,19 @@
     </div>
 
     <script>
-        // 数据存储
-        const DB_KEY = 'closet_data_v1';
-        const IMG_KEY = 'closet_imgs_v1';
-        const ORIGINAL_IMG_KEY = 'closet_original_imgs_v1';  // 存储原始图片
-        const IMG_TRANSFORM_KEY = 'closet_img_transforms_v1'; // 存储裁剪参数
-        const ORDER_KEY = 'closet_ootd_order_v1'; // 存储全身穿搭排序
+        // 数据存储 - IndexedDB
+        const DB_NAME = 'ClosetDB';
+        const DB_VERSION = 1;
+        let db = null;
+
+        // 兼容：localStorage keys（用于数据迁移）
+        const LEGACY_DB_KEY = 'closet_data_v1';
+        const LEGACY_IMG_KEY = 'closet_imgs_v1';
+        const LEGACY_ORIGINAL_IMG_KEY = 'closet_original_imgs_v1';
+        const LEGACY_IMG_TRANSFORM_KEY = 'closet_img_transforms_v1';
+        const LEGACY_ORDER_KEY = 'closet_ootd_order_v1';
+
+        // 内存中的数据缓存
         let items = [], imgs = {}, originalImgs = {}, imgTransforms = {}, ootdOrder = {};
 
         const config = {
@@ -294,6 +301,14 @@
         };
 
         // 初始化
+        async function init() {
+            await loadData();
+            fillSelects();
+            render();
+            setupSW();
+            initTouchDrag();
+        }
+
         // 滚动时隐藏+按钮，停止时显示
         let scrollTimer;
         window.addEventListener('scroll', () => {
@@ -311,31 +326,276 @@
             }, 150);
         }, { passive: true });
 
-        function init() {
-            loadData();
-            fillSelects();
-            render();
-            setupSW();
-            initTouchDrag();
+        // IndexedDB 初始化
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    db = request.result;
+                    resolve(db);
+                };
+
+                request.onupgradeneeded = (event) => {
+                    const database = event.target.result;
+
+                    // 存储 items（JSON 数据）
+                    if (!database.objectStoreNames.contains('items')) {
+                        database.createObjectStore('items', { keyPath: 'id' });
+                    }
+
+                    // 存储图片（Blob 格式）
+                    if (!database.objectStoreNames.contains('images')) {
+                        database.createObjectStore('images', { keyPath: 'id' });
+                    }
+
+                    // 存储原始图片（Blob 格式）
+                    if (!database.objectStoreNames.contains('originalImages')) {
+                        database.createObjectStore('originalImages', { keyPath: 'id' });
+                    }
+
+                    // 存储变换参数
+                    if (!database.objectStoreNames.contains('transforms')) {
+                        database.createObjectStore('transforms', { keyPath: 'id' });
+                    }
+
+                    // 存储排序信息
+                    if (!database.objectStoreNames.contains('order')) {
+                        database.createObjectStore('order', { keyPath: 'id' });
+                    }
+                };
+            });
         }
 
-        // 数据操作
-        function loadData() {
+        // 从 IndexedDB 读取数据
+        async function loadData() {
+            if (!db) await initDB();
+
             try {
-                items = JSON.parse(localStorage.getItem(DB_KEY) || '[]');
-                imgs = JSON.parse(localStorage.getItem(IMG_KEY) || '{}');
-                originalImgs = JSON.parse(localStorage.getItem(ORIGINAL_IMG_KEY) || '{}');
-                imgTransforms = JSON.parse(localStorage.getItem(IMG_TRANSFORM_KEY) || '{}');
-                ootdOrder = JSON.parse(localStorage.getItem(ORDER_KEY) || '{}');
-            } catch(e) { items = []; imgs = {}; originalImgs = {}; imgTransforms = {}; ootdOrder = {}; }
+                // 从 IndexedDB 加载
+                items = await getAllItemsFromStore('items') || [];
+                imgs = await getAllFromStore('images') || {};
+                originalImgs = await getAllFromStore('originalImages') || {};
+                imgTransforms = await getAllFromStore('transforms') || {};
+                ootdOrder = await getAllFromStore('order') || {};
+
+                // 如果没有数据，尝试从 localStorage 迁移
+                if (items.length === 0) {
+                    await migrateFromLocalStorage();
+                }
+            } catch (e) {
+                console.error('加载数据失败:', e);
+                items = []; imgs = {}; originalImgs = {}; imgTransforms = {}; ootdOrder = {};
+            }
         }
 
-        function saveData() {
-            localStorage.setItem(DB_KEY, JSON.stringify(items));
-            localStorage.setItem(IMG_KEY, JSON.stringify(imgs));
-            localStorage.setItem(ORIGINAL_IMG_KEY, JSON.stringify(originalImgs));
-            localStorage.setItem(IMG_TRANSFORM_KEY, JSON.stringify(imgTransforms));
-            localStorage.setItem(ORDER_KEY, JSON.stringify(ootdOrder));
+        // 获取 items 数组（特殊处理）
+        function getAllItemsFromStore(storeName) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(storeName, 'readonly');
+                const store = transaction.objectStore(storeName);
+                const request = store.getAll();
+
+                request.onsuccess = () => {
+                    // 返回数组
+                    const itemsArray = request.result.map(item => item.data);
+                    resolve(itemsArray);
+                };
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // 从 store 获取所有数据
+        function getAllFromStore(storeName) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(storeName, 'readonly');
+                const store = transaction.objectStore(storeName);
+                const request = store.getAll();
+
+                request.onsuccess = () => {
+                    const result = {};
+                    request.result.forEach(item => {
+                        result[item.id] = item.data;
+                    });
+                    resolve(result);
+                };
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // 从 localStorage 迁移数据到 IndexedDB
+        async function migrateFromLocalStorage() {
+            console.log('开始从 localStorage 迁移数据...');
+
+            try {
+                const legacyItems = JSON.parse(localStorage.getItem(LEGACY_DB_KEY) || '[]');
+                const legacyImgs = JSON.parse(localStorage.getItem(LEGACY_IMG_KEY) || '{}');
+                const legacyOriginalImgs = JSON.parse(localStorage.getItem(LEGACY_ORIGINAL_IMG_KEY) || '{}');
+                const legacyTransforms = JSON.parse(localStorage.getItem(LEGACY_IMG_TRANSFORM_KEY) || '{}');
+                const legacyOrder = JSON.parse(localStorage.getItem(LEGACY_ORDER_KEY) || '{}');
+
+                // 迁移 items
+                for (const item of legacyItems) {
+                    await saveToStore('items', item.id, item);
+                }
+                items = legacyItems;
+
+                // 迁移图片（base64 转 Blob）
+                for (const [id, base64] of Object.entries(legacyImgs)) {
+                    const blob = base64ToBlob(base64);
+                    await saveBlobToStore('images', id, blob);
+                    imgs[id] = base64; // 保留 base64 用于渲染
+                }
+
+                // 迁移原始图片
+                for (const [id, base64] of Object.entries(legacyOriginalImgs)) {
+                    const blob = base64ToBlob(base64);
+                    await saveBlobToStore('originalImages', id, blob);
+                    originalImgs[id] = base64;
+                }
+
+                // 迁移变换参数
+                for (const [id, transform] of Object.entries(legacyTransforms)) {
+                    await saveToStore('transforms', id, transform);
+                }
+                imgTransforms = legacyTransforms;
+
+                // 迁移排序
+                for (const [id, order] of Object.entries(legacyOrder)) {
+                    await saveToStore('order', id, order);
+                }
+                ootdOrder = legacyOrder;
+
+                // 迁移完成后清空 localStorage（释放空间）
+                localStorage.removeItem(LEGACY_DB_KEY);
+                localStorage.removeItem(LEGACY_IMG_KEY);
+                localStorage.removeItem(LEGACY_ORIGINAL_IMG_KEY);
+                localStorage.removeItem(LEGACY_IMG_TRANSFORM_KEY);
+                localStorage.removeItem(LEGACY_ORDER_KEY);
+
+                console.log('数据迁移完成！');
+            } catch (e) {
+                console.error('迁移失败:', e);
+            }
+        }
+
+        // base64 转 Blob
+        function base64ToBlob(base64) {
+            const parts = base64.split(',');
+            const mime = parts[0].match(/:(.*?);/)[1];
+            const binary = atob(parts[1]);
+            const array = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                array[i] = binary.charCodeAt(i);
+            }
+            return new Blob([array], { type: mime });
+        }
+
+        // 压缩图片
+        function compressImage(img, maxWidth = 800, maxHeight = 1200, quality = 0.85) {
+            return new Promise((resolve) => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                let width = img.naturalWidth;
+                let height = img.naturalHeight;
+
+                // 计算缩放比例
+                const scale = Math.min(maxWidth / width, maxHeight / height, 1);
+                width = Math.floor(width * scale);
+                height = Math.floor(height * scale);
+
+                canvas.width = width;
+                canvas.height = height;
+
+                // 使用更好的压缩算法
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+
+                // 绘制图片
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // 输出压缩后的 base64
+                const compressed = canvas.toDataURL('image/jpeg', quality);
+                resolve(compressed);
+            });
+        }
+
+        // 获取图片尺寸信息
+        function getImageInfo(base64) {
+            const head = base64.slice(0, 50);
+            const sizeInMB = (base64.length * 0.75 / 1024 / 1024).toFixed(2);
+            return { sizeInMB };
+        }
+
+        // Blob 转 base64（用于显示）
+        function blobToBase64(blob) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        // 保存数据到 store（JSON 格式）
+        function saveToStore(storeName, id, data) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(storeName, 'readwrite');
+                const store = transaction.objectStore(storeName);
+                const request = store.put({ id, data });
+
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // 保存 Blob 到 store
+        function saveBlobToStore(storeName, id, blob) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(storeName, 'readwrite');
+                const store = transaction.objectStore(storeName);
+                const request = store.put({ id, blob });
+
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // 保存所有数据到 IndexedDB
+        async function saveData() {
+            if (!db) return;
+
+            try {
+                // 保存 items
+                for (const item of items) {
+                    await saveToStore('items', item.id, item);
+                }
+
+                // 保存图片（已经是 base64）
+                for (const [id, base64] of Object.entries(imgs)) {
+                    const blob = base64ToBlob(base64);
+                    await saveBlobToStore('images', id, blob);
+                }
+
+                // 保存原始图片
+                for (const [id, base64] of Object.entries(originalImgs)) {
+                    const blob = base64ToBlob(base64);
+                    await saveBlobToStore('originalImages', id, blob);
+                }
+
+                // 保存变换参数
+                for (const [id, transform] of Object.entries(imgTransforms)) {
+                    await saveToStore('transforms', id, transform);
+                }
+
+                // 保存排序
+                for (const [id, order] of Object.entries(ootdOrder)) {
+                    await saveToStore('order', id, order);
+                }
+            } catch (e) {
+                console.error('保存数据失败:', e);
+            }
         }
 
         function exportData() {
@@ -1324,15 +1584,21 @@
             reader.onload = function(e) {
                 console.log('FileReader loaded');
                 const img = new Image();
-                img.onload = function() {
-                    console.log('Image loaded, size:', img.width, 'x', img.height);
+                img.onload = async function() {
+                    console.log('Image loaded, original size:', img.width, 'x', img.height);
                     const previewWrapper = document.getElementById('previewWrapper');
                     const preview = document.getElementById('previewImg');
                     const uploadLabel = document.getElementById('uploadLabel');
 
+                    // 压缩图片（最大 800x1200，质量 85%）
+                    const compressedData = await compressImage(img, 800, 1200, 0.85);
+                    const originalInfo = getImageInfo(e.target.result);
+                    const compressedInfo = getImageInfo(compressedData);
+                    console.log(`Image compressed: ${originalInfo.sizeInMB}MB -> ${compressedInfo.sizeInMB}MB`);
+
                     // 显示预览，隐藏上传按钮
-                    preview.src = e.target.result;
-                    preview.dataset.original = e.target.result;
+                    preview.src = compressedData;
+                    preview.dataset.original = e.target.result; // 保留原图用于编辑
                     preview.classList.remove('hidden');
                     previewWrapper.classList.remove('hidden');
                     uploadLabel.classList.add('hidden');
@@ -1345,7 +1611,12 @@
                     resetImageTransform();
                     setupImageGestures();
 
-                    console.log('preview updated');
+                    // 显示压缩提示
+                    if (parseFloat(originalInfo.sizeInMB) > 0.5) {
+                        showToast(`图片已压缩: ${originalInfo.sizeInMB}MB → ${compressedInfo.sizeInMB}MB`);
+                    }
+
+                    console.log('preview updated with compressed image');
                 };
                 img.onerror = function() {
                     alert('图片加载失败，请重试');
