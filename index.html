@@ -143,7 +143,7 @@
             <input type="hidden" id="editId">
 
             <div class="space-y-5 pb-8">
-                <div class="bg-gray-100 rounded-3xl h-44 relative overflow-hidden">
+                <div class="bg-gray-100 rounded-3xl relative overflow-hidden" style="aspect-ratio: 3/4;">
                     <label class="absolute inset-0 flex flex-col items-center justify-center cursor-pointer active:bg-gray-200 transition-colors" id="uploadLabel">
                         <input type="file" id="fileInput" class="hidden" accept="image/*" onchange="previewImg(this)">
                         <div id="uploadBox" class="flex flex-col items-center">
@@ -152,7 +152,7 @@
                         </div>
                     </label>
                     <div id="previewWrapper" class="hidden absolute inset-0 bg-gray-100">
-                        <img id="previewImg" class="w-full h-full" style="object-fit: contain;">
+                        <img id="previewImg" class="w-full h-full" style="object-fit: cover;">
                         <button type="button" onclick="clearImage()" class="absolute top-2 right-2 w-8 h-8 bg-black/60 text-white rounded-full flex items-center justify-center text-lg font-bold z-10">×</button>
                     </div>
                 </div>
@@ -587,8 +587,8 @@
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
 
-            // 输出固定 800x800
-            canvas.width = 800;
+            // 输出固定 600x800 (3:4 比例)
+            canvas.width = 600;
             canvas.height = 800;
 
             // 计算可见区域的裁剪
@@ -606,7 +606,7 @@
                 img,
                 Math.max(0, sourceX), Math.max(0, sourceY),
                 Math.min(img.naturalWidth, sourceSize), Math.min(img.naturalHeight, sourceSize),
-                0, 0, 800, 800
+                0, 0, 600, 800
             );
 
             return canvas.toDataURL('image/jpeg', 0.85);
