@@ -104,11 +104,11 @@
                 </div>
 
                 <!-- 选中分类的物品列表 -->
-                <div id="closetItems">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 id="closetItemsTitle" class="text-lg font-bold">分类名称</h3>
+                <div id="closetItems" class="bg-gray-50 rounded-2xl p-4">
+                    <div class="flex items-center justify-between mb-4 px-2">
+                        <h3 id="closetItemsTitle" class="text-base font-bold">分类名称</h3>
                     </div>
-                    <div id="closetItemsGrid" class="grid grid-cols-2 gap-4">
+                    <div id="closetItemsGrid" class="grid grid-cols-2 gap-3">
                         <!-- 动态生成物品卡片 -->
                     </div>
                 </div>
@@ -403,7 +403,7 @@
                 const isSelected = currentSelectedCategory === type;
                 return `
                     <div onclick="selectCategory('${type}')"
-                         class="cursor-pointer rounded-xl p-3 flex flex-col items-center justify-center transition-all ${isSelected ? 'bg-white border-2 border-black' : 'bg-gray-50'}">
+                         class="cursor-pointer rounded-2xl p-3 flex flex-col items-center justify-center transition-all border-2 ${isSelected ? 'bg-white border-black' : 'bg-gray-50 border-transparent'}">
                         <div class="w-8 h-8 mb-1 text-gray-700">${icon}</div>
                         <span class="text-xs font-bold text-gray-800">${type}</span>
                         <span class="text-[10px] text-gray-400">${count}件</span>
