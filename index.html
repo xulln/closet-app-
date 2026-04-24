@@ -426,6 +426,17 @@
         }
 
         // 选中分类，显示物品列表
+        // 分类浏览页面的卡片（无文字，只显示图片）
+        function renderClosetCard(item) {
+            const img = imgs[item.id] ? `<img src="${imgs[item.id]}">` :
+                `<svg class="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>`;
+            return `
+                <div class="card relative group" onclick="editItem('${item.id}')">
+                    ${img}
+                    <button onclick="event.stopPropagation();deleteItem('${item.id}')" class="del-btn">×</button>
+                </div>`;
+        }
+
         function selectCategory(type) {
             currentSelectedCategory = type;
             renderClosetCategories(); // 重新渲染以更新选中状态
@@ -434,13 +445,13 @@
             const count = items.filter(i => i.type === type).length;
             document.getElementById('closetItemsTitle').textContent = `${type} (${count})`;
 
-            // 渲染物品列表
+            // 渲染物品列表（使用无文字版本）
             const filtered = items.filter(i => i.type === type);
             const grid = document.getElementById('closetItemsGrid');
             if (filtered.length === 0) {
                 grid.innerHTML = '<div class="col-span-2 text-center text-gray-400 py-8">暂无物品</div>';
             } else {
-                grid.innerHTML = filtered.map(i => renderCard(i)).join('');
+                grid.innerHTML = filtered.map(i => renderClosetCard(i)).join('');
             }
         }
 
