@@ -673,13 +673,6 @@
             document.getElementById('itemTemp').value = '';
             document.getElementById('itemScene').value = '';
             document.getElementById('washNote').value = '';
-            document.getElementById('categoryTag').value = '';
-
-            // 重置类型标签按钮状态
-            document.querySelectorAll('.cat-tag').forEach(btn => {
-                btn.classList.remove('bg-black', 'text-white');
-                btn.classList.add('bg-gray-100', 'text-gray-500');
-            });
 
             const typeSelect = document.getElementById('itemType');
             typeSelect.innerHTML = config[mode].types.map(t => `<option value="${t}">${t}</option>`).join('');
