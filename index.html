@@ -320,8 +320,16 @@
 
         // 渲染
         function render() {
-            // 首页只显示 type === '全身' 的衣服
+            // 首页只显示 type === '全身' 的衣服，并根据 categoryTag 筛选
+            const filter = document.querySelector('#filterGroup .selected')?.dataset.filter || 'all';
             let filtered = items.filter(i => i.type === '全身');
+
+            if (filter === 'clothes') {
+                filtered = filtered.filter(i => i.categoryTag === '服装');
+            } else if (filter === 'mix') {
+                filtered = filtered.filter(i => i.categoryTag === '服装+配饰');
+            }
+
             const grid = document.getElementById('ootdGrid');
             const empty = document.getElementById('ootdEmpty');
             if(filtered.length === 0) { grid.innerHTML = ''; empty.classList.remove('hidden'); }
