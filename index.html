@@ -69,8 +69,14 @@
         <header class="px-6 bg-white sticky top-[env(safe-area-inset-top)] z-50">
             <div class="flex items-center justify-between h-16">
                 <h1 class="text-2xl font-extrabold tracking-tighter">Closet</h1>
-                <div class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center" onclick="exportData()">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                <div class="flex items-center gap-2">
+                    <label class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center cursor-pointer">
+                        <input type="file" accept=".json" class="hidden" onchange="if(this.files[0])importData(this.files[0]);this.value=''">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                    </label>
+                    <div class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center" onclick="exportData()">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    </div>
                 </div>
             </div>
             <div class="relative mb-6">
@@ -433,11 +439,19 @@
 
                 request.onsuccess = async () => {
                     const result = {};
+                    const promises = [];
                     for (const item of request.result) {
                         if (item.blob) {
-                            result[item.id] = await blobToBase64(item.blob);
+                            promises.push(
+                                blobToBase64(item.blob).then(base64 => {
+                                    result[item.id] = base64;
+                                }).catch(err => {
+                                    console.error('转换图片失败:', item.id, err);
+                                })
+                            );
                         }
                     }
+                    await Promise.all(promises);
                     resolve(result);
                 };
                 request.onerror = () => reject(request.error);
@@ -625,6 +639,49 @@
             const a = document.createElement('a');
             a.href = url; a.download = `closet-backup-${Date.now()}.json`;
             a.click(); URL.revokeObjectURL(url);
+        }
+
+        // 导入数据
+        async function importData(file) {
+            try {
+                const text = await file.text();
+                const data = JSON.parse(text);
+
+                if (!data.items || !data.imgs) {
+                    alert('备份文件格式不正确');
+                    return;
+                }
+
+                // 确认导入
+                if (!confirm(`确定导入备份？\n包含 ${data.items.length} 件衣服\n将覆盖现有数据`)) {
+                    return;
+                }
+
+                // 清空现有数据
+                items = [];
+                imgs = {};
+                originalImgs = {};
+                imgTransforms = {};
+                ootdOrder = {};
+
+                // 导入数据
+                items = data.items;
+                imgs = data.imgs;
+                if (data.originalImgs) originalImgs = data.originalImgs;
+                if (data.imgTransforms) imgTransforms = data.imgTransforms;
+                if (data.ootdOrder) ootdOrder = data.ootdOrder;
+
+                // 保存到 IndexedDB
+                await saveData();
+
+                // 刷新显示
+                render();
+
+                alert('导入成功！');
+            } catch (e) {
+                console.error('导入失败:', e);
+                alert('导入失败，请检查备份文件');
+            }
         }
 
         // 页面切换
