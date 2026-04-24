@@ -77,13 +77,21 @@
 
             <!-- OOTD 列表 -->
             <div id="section-ootd">
+                <!-- 筛选维度选择 -->
                 <div class="mb-6" id="filterGroup">
                     <!-- 全部按钮 -->
                     <div onclick="setFilter('all')" class="tag tag-s selected mb-3" data-filter="all"><span class="tag-t">全部</span></div>
 
-                    <!-- 风格筛选 -->
-                    <div class="flex flex-wrap items-center gap-2 mb-3">
-                        <span class="text-xs text-gray-400 font-bold mr-1">风格</span>
+                    <!-- 三个维度按钮 -->
+                    <div class="flex gap-2 mb-3">
+                        <div onclick="showFilterDimension('style')" id="dim-style" class="tag tag-s flex-1"><span class="tag-t">风格</span></div>
+                        <div onclick="showFilterDimension('temp')" id="dim-temp" class="tag tag-s flex-1"><span class="tag-t">温度</span></div>
+                        <div onclick="showFilterDimension('scene')" id="dim-scene" class="tag tag-s flex-1"><span class="tag-t">场合</span></div>
+                    </div>
+
+                    <!-- 风格标签（默认隐藏） -->
+                    <div id="filter-style" class="hidden flex flex-wrap gap-2 mb-3">
+                        <span class="text-xs text-gray-400 font-bold w-full mb-1">选择风格</span>
                         <div onclick="toggleFilter('style', '休闲')" class="tag tag-s" data-filter-type="style" data-filter-value="休闲"><span class="tag-t">休闲</span></div>
                         <div onclick="toggleFilter('style', '气质')" class="tag tag-s" data-filter-type="style" data-filter-value="气质"><span class="tag-t">气质</span></div>
                         <div onclick="toggleFilter('style', '可爱')" class="tag tag-s" data-filter-type="style" data-filter-value="可爱"><span class="tag-t">可爱</span></div>
@@ -91,9 +99,9 @@
                         <div onclick="toggleFilter('style', '复古')" class="tag tag-s" data-filter-type="style" data-filter-value="复古"><span class="tag-t">复古</span></div>
                     </div>
 
-                    <!-- 温度筛选 -->
-                    <div class="flex flex-wrap items-center gap-2 mb-3">
-                        <span class="text-xs text-gray-400 font-bold mr-1">温度</span>
+                    <!-- 温度标签（默认隐藏） -->
+                    <div id="filter-temp" class="hidden flex flex-wrap gap-2 mb-3">
+                        <span class="text-xs text-gray-400 font-bold w-full mb-1">选择温度</span>
                         <div onclick="toggleFilter('temp', '极热 35℃+')" class="tag tag-s" data-filter-type="temp" data-filter-value="极热 35℃+"><span class="tag-t">极热</span></div>
                         <div onclick="toggleFilter('temp', '热 28-34℃')" class="tag tag-s" data-filter-type="temp" data-filter-value="热 28-34℃"><span class="tag-t">热</span></div>
                         <div onclick="toggleFilter('temp', '舒适 20-27℃')" class="tag tag-s" data-filter-type="temp" data-filter-value="舒适 20-27℃"><span class="tag-t">舒适</span></div>
@@ -101,9 +109,9 @@
                         <div onclick="toggleFilter('temp', '冷 10-12℃')" class="tag tag-s" data-filter-type="temp" data-filter-value="冷 10-12℃"><span class="tag-t">冷</span></div>
                     </div>
 
-                    <!-- 场合筛选 -->
-                    <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-xs text-gray-400 font-bold mr-1">场合</span>
+                    <!-- 场合标签（默认隐藏） -->
+                    <div id="filter-scene" class="hidden flex flex-wrap gap-2">
+                        <span class="text-xs text-gray-400 font-bold w-full mb-1">选择场合</span>
                         <div onclick="toggleFilter('scene', '通勤')" class="tag tag-s" data-filter-type="scene" data-filter-value="通勤"><span class="tag-t">通勤</span></div>
                         <div onclick="toggleFilter('scene', '运动')" class="tag tag-s" data-filter-type="scene" data-filter-value="运动"><span class="tag-t">运动</span></div>
                         <div onclick="toggleFilter('scene', '同性好友见面')" class="tag tag-s" data-filter-type="scene" data-filter-value="同性好友见面"><span class="tag-t">同性好友</span></div>
@@ -581,14 +589,36 @@
         }
 
         // 筛选
+        // 显示筛选维度
+        function showFilterDimension(dimension) {
+            // 隐藏所有具体标签
+            document.getElementById('filter-style').classList.add('hidden');
+            document.getElementById('filter-temp').classList.add('hidden');
+            document.getElementById('filter-scene').classList.add('hidden');
+
+            // 取消所有维度按钮的选中状态
+            document.getElementById('dim-style').classList.remove('selected');
+            document.getElementById('dim-temp').classList.remove('selected');
+            document.getElementById('dim-scene').classList.remove('selected');
+
+            // 显示选中的维度
+            if (dimension) {
+                document.getElementById(`filter-${dimension}`).classList.remove('hidden');
+                document.getElementById(`dim-${dimension}`).classList.add('selected');
+            }
+        }
+
         function setFilter(f) {
             if (f === 'all') {
                 // 重置所有筛选
                 currentFilters = { type: 'all', style: [], temp: [], scene: [] };
 
-                // 更新UI：全部按钮选中，其他按钮取消选中
+                // 更新UI：全部按钮选中
                 document.querySelector('[data-filter="all"]').classList.add('selected');
                 document.querySelectorAll('[data-filter-type]').forEach(t => t.classList.remove('selected'));
+
+                // 隐藏所有维度具体标签
+                showFilterDimension(null);
             }
             render();
         }
@@ -613,6 +643,8 @@
                 // 没有任何筛选，回到全部模式
                 currentFilters.type = 'all';
                 document.querySelector('[data-filter="all"]').classList.add('selected');
+                // 隐藏所有维度
+                showFilterDimension(null);
             } else {
                 // 有筛选条件
                 currentFilters.type = 'filtered';
