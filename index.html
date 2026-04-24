@@ -200,7 +200,7 @@
     </div>
 
     <!-- 底部添加按钮 -->
-    <div class="fixed bottom-8 left-0 right-0 flex justify-center z-50 pointer-events-none">
+    <div id="addBtnContainer" class="fixed bottom-8 left-0 right-0 flex justify-center z-50 pointer-events-none transition-opacity duration-300">
         <button onclick="openChoice()" class="w-14 h-14 bg-black text-white rounded-full shadow-2xl flex items-center justify-center pointer-events-auto active:scale-90 transition-transform">
             <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
         </button>
@@ -223,6 +223,23 @@
         };
 
         // 初始化
+        // 滚动时隐藏+按钮，停止时显示
+        let scrollTimer;
+        window.addEventListener('scroll', () => {
+            const addBtn = document.getElementById('addBtnContainer');
+            if (addBtn) {
+                addBtn.style.opacity = '0';
+                addBtn.style.pointerEvents = 'none';
+            }
+            clearTimeout(scrollTimer);
+            scrollTimer = setTimeout(() => {
+                if (addBtn) {
+                    addBtn.style.opacity = '1';
+                    addBtn.style.pointerEvents = 'auto';
+                }
+            }, 150);
+        }, { passive: true });
+
         function init() {
             loadData();
             fillSelects();
