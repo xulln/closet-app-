@@ -650,9 +650,7 @@
         }
 
         function setFilter(f) {
-            alert('setFilter called: ' + f);
             if (f === 'all') {
-                alert('Resetting to all');
                 // 重置所有筛选状态
                 currentFilters = { type: 'all', dimension: null, style: [], temp: [], scene: [] };
 
@@ -667,7 +665,6 @@
                 document.getElementById('filter-style').classList.add('hidden');
                 document.getElementById('filter-temp').classList.add('hidden');
                 document.getElementById('filter-scene').classList.add('hidden');
-                alert('All reset done, rendering');
             }
             render();
         }
