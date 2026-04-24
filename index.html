@@ -176,6 +176,11 @@
                     </div>
                 </div>
 
+                <!-- 编辑图片按钮 -->
+                <button type="button" id="editImageBtn" onclick="enableImageEdit()" class="w-full py-3 bg-gray-100 rounded-2xl text-sm font-bold text-gray-600 active:scale-95 transition-transform">
+                    ✏️ 编辑图片
+                </button>
+
                 <div>
                     <label class="text-xs font-black uppercase tracking-widest text-gray-400 block mb-2">分类</label>
                     <select id="itemType" onchange="onTypeChange()" class="w-full rounded-2xl py-4 px-5 text-sm font-bold"></select>
@@ -630,8 +635,27 @@
             y: 0,
             isDragging: false,
             startX: 0,
-            startY: 0
+            startY: 0,
+            enabled: false  // 默认禁用编辑，需要点击编辑按钮后才启用
         };
+
+        // 启用图片编辑功能
+        function enableImageEdit() {
+            imgTransform.enabled = true;
+            document.getElementById('editImageBtn').classList.add('hidden');
+            setupImageGestures();
+            // 显示提示
+            showToast('现在可以自由拖动和缩放图片');
+        }
+
+        // 显示提示信息
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'fixed top-20 left-1/2 transform -translate-x-1/2 bg-black/80 text-white px-4 py-2 rounded-full text-sm font-bold z-50 animate-fade-out';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
 
         function setupImageGestures() {
             const container = document.getElementById('previewWrapper');
@@ -644,6 +668,9 @@
             let initialDistance = 0;
 
             container.ontouchstart = function(e) {
+                // 未启用编辑时，不处理手势
+                if (!imgTransform.enabled) return;
+
                 if (e.touches.length === 2) {
                     // 双指缩放开始
                     initialDistance = Math.hypot(
@@ -686,6 +713,8 @@
 
             // 鼠标支持
             img.onmousedown = function(e) {
+                // 未启用编辑时，不处理鼠标拖拽
+                if (!imgTransform.enabled) return;
                 imgTransform.isDragging = true;
                 imgTransform.startX = e.clientX - imgTransform.x;
                 imgTransform.startY = e.clientY - imgTransform.y;
@@ -693,7 +722,7 @@
             };
 
             document.onmousemove = function(e) {
-                if (!imgTransform.isDragging) return;
+                if (!imgTransform.isDragging || !imgTransform.enabled) return;
                 e.preventDefault();
                 imgTransform.x = e.clientX - imgTransform.startX;
                 imgTransform.y = e.clientY - imgTransform.startY;
@@ -707,6 +736,8 @@
 
             // 滚轮缩放
             container.onwheel = function(e) {
+                // 未启用编辑时，不处理滚轮
+                if (!imgTransform.enabled) return;
                 e.preventDefault();
                 const delta = e.deltaY > 0 ? 0.9 : 1.1;
                 imgTransform.scale = Math.max(0.5, Math.min(3, imgTransform.scale * delta));
@@ -724,6 +755,10 @@
             imgTransform.x = 0;
             imgTransform.y = 0;
             imgTransform.isDragging = false;
+            imgTransform.enabled = false;  // 重置时禁用编辑
+            // 显示编辑按钮
+            const editBtn = document.getElementById('editImageBtn');
+            if (editBtn) editBtn.classList.remove('hidden');
             applyImageTransform();
         }
 
