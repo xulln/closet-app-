@@ -176,8 +176,8 @@
                     </div>
                 </div>
 
-                <!-- 编辑图片按钮 -->
-                <button type="button" id="editImageBtn" onclick="enableImageEdit()" class="w-full py-3 bg-gray-100 rounded-2xl text-sm font-bold text-gray-600 active:scale-95 transition-transform">
+                <!-- 编辑图片按钮（默认隐藏，上传后显示）-->
+                <button type="button" id="editImageBtn" onclick="enableImageEdit()" class="w-full py-3 bg-gray-100 rounded-2xl text-sm font-bold text-gray-600 active:scale-95 transition-transform hidden">
                     ✏️ 编辑图片
                 </button>
 
@@ -624,6 +624,10 @@
             previewWrapper.classList.add('hidden');
             uploadLabel.classList.remove('hidden');
 
+            // 隐藏编辑按钮
+            const editBtn = document.getElementById('editImageBtn');
+            if (editBtn) editBtn.classList.add('hidden');
+
             // 清空文件输入
             fileInput.value = '';
         }
@@ -853,6 +857,10 @@
                     preview.classList.remove('hidden');
                     previewWrapper.classList.remove('hidden');
                     uploadLabel.classList.add('hidden');
+
+                    // 显示编辑按钮
+                    const editBtn = document.getElementById('editImageBtn');
+                    if (editBtn) editBtn.classList.remove('hidden');
 
                     // 重置并启用手势缩放
                     resetImageTransform();
