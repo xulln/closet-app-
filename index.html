@@ -60,7 +60,7 @@
                 <button onclick="clearSearch()" id="clearBtn" class="hidden absolute right-4 top-3.5 w-6 h-6 bg-gray-300 rounded-full text-white text-xs">×</button>
             </div>
             <div class="flex space-x-8 mb-2">
-                <button onclick="setTab('ootd')" id="tab-ootd" class="tab active">全部单品<div class="tab-dot"></div></button>
+                <button onclick="setTab('ootd')" id="tab-ootd" class="tab active">全身穿搭<div class="tab-dot"></div></button>
                 <button onclick="setTab('closet')" id="tab-closet" class="tab">分类浏览<div class="tab-dot"></div></button>
             </div>
         </header>
@@ -300,18 +300,16 @@
                     ${img}
                     <button onclick="event.stopPropagation();deleteItem('${item.id}')" class="del-btn">×</button>
                     <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 pt-8 rounded-b-3xl">
-                        <p class="text-white text-xs font-bold truncate">${item.name}</p>
-                        <p class="text-white/70 text-[10px]">${item.categoryTag || item.type} · ${item.style || '-'}</p>
+                        <p class="text-white text-[10px] leading-relaxed">${item.style || '无风格'}</p>
+                        <p class="text-white/80 text-[10px] leading-relaxed">${item.temp || '无温度'}</p>
+                        <p class="text-white/60 text-[10px] leading-relaxed">${item.scene || '无场合'}</p>
                     </div>
                 </div>`;
         }
 
         function renderCloset() {
             const cats = [
-                { key: 'type', label: '单品分类', data: [...config.clothes.types, ...config.acc.types] },
-                { key: 'style', label: '服装风格', data: config.style },
-                { key: 'temp', label: '适穿温度', data: config.temp },
-                { key: 'scene', label: '场合', data: config.scene }
+                { key: 'type', label: '单品分类', data: [...config.clothes.types, ...config.acc.types] }
             ];
             document.getElementById('closetCats').innerHTML = cats.map(c => `
                 <section>
