@@ -522,10 +522,10 @@
                 const isSelected = currentSelectedCategory === type;
                 return `
                     <div onclick="selectCategory('${type}')"
-                         class="cursor-pointer rounded-2xl p-3 flex flex-col items-center justify-center transition-all border-2 ${isSelected ? 'bg-white border-black' : 'bg-gray-50 border-transparent'}">
-                        <div class="w-8 h-8 mb-1 text-gray-700">${icon}</div>
-                        <span class="text-xs font-bold text-gray-800">${type}</span>
-                        <span class="text-[10px] text-gray-400">${count}件</span>
+                         class="cursor-pointer rounded-2xl p-2 flex flex-col items-center justify-center transition-all border-2 ${isSelected ? 'bg-white border-black' : 'bg-gray-50 border-transparent'}">
+                        <div class="w-6 h-6 mb-1 text-gray-700">${icon}</div>
+                        <span class="text-[11px] font-bold text-gray-800">${type}</span>
+                        <span class="text-[9px] text-gray-400">${count}件</span>
                     </div>
                 `;
             }).join('');
