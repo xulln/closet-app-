@@ -210,7 +210,8 @@
         // 数据存储
         const DB_KEY = 'closet_data_v1';
         const IMG_KEY = 'closet_imgs_v1';
-        let items = [], imgs = {};
+        const ORIGINAL_IMG_KEY = 'closet_original_imgs_v1';  // 存储原始图片用于重新编辑
+        let items = [], imgs = {}, originalImgs = {};
 
         const config = {
             clothes: { types: ['全身','上衣','裤子','裙子','外套','连衣裙','套装'], icon: '👔' },
@@ -233,12 +234,14 @@
             try {
                 items = JSON.parse(localStorage.getItem(DB_KEY) || '[]');
                 imgs = JSON.parse(localStorage.getItem(IMG_KEY) || '{}');
-            } catch(e) { items = []; imgs = {}; }
+                originalImgs = JSON.parse(localStorage.getItem(ORIGINAL_IMG_KEY) || '{}');
+            } catch(e) { items = []; imgs = {}; originalImgs = {}; }
         }
 
         function saveData() {
             localStorage.setItem(DB_KEY, JSON.stringify(items));
             localStorage.setItem(IMG_KEY, JSON.stringify(imgs));
+            localStorage.setItem(ORIGINAL_IMG_KEY, JSON.stringify(originalImgs));
         }
 
         function exportData() {
@@ -400,11 +403,15 @@
             document.getElementById('categoryTag').value = item.categoryTag || '';
             if(item.categoryTag) setCategoryTag(item.categoryTag);
 
-            if(imgs[id]) {
-                document.getElementById('previewImg').src = imgs[id];
+            // 编辑时加载原始图片（如果有），否则使用裁剪后的图片
+            const imgToEdit = originalImgs[id] || imgs[id];
+            if(imgToEdit) {
+                const previewImg = document.getElementById('previewImg');
+                previewImg.src = imgToEdit;
+                previewImg.dataset.original = originalImgs[id] || imgToEdit;  // 保存原始图片引用
                 document.getElementById('previewWrapper').classList.remove('hidden');
                 document.getElementById('uploadLabel').classList.add('hidden');
-                // 启用手势缩放
+                // 重置变换状态，从原始图片开始编辑
                 resetImageTransform();
                 setupImageGestures();
             } else {
@@ -730,6 +737,10 @@
             const transformedData = getTransformedImageData();
             if(transformedData) {
                 imgs[id] = transformedData;
+                // 同时保存原始图片用于重新编辑
+                if(previewImg.dataset.original) {
+                    originalImgs[id] = previewImg.dataset.original;
+                }
             } else if(previewImg.dataset.data) {
                 imgs[id] = previewImg.dataset.data;
             }
@@ -743,6 +754,7 @@
             if(!confirm('确定删除这个单品吗？')) return;
             items = items.filter(i => i.id !== id);
             delete imgs[id];
+            delete originalImgs[id];  // 同时删除原始图片
             saveData();
             render();
         }
