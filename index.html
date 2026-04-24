@@ -113,10 +113,9 @@
                     <div id="filter-scene" class="hidden flex flex-wrap gap-2">
                         <span class="text-xs text-gray-400 font-bold w-full mb-1">选择场合</span>
                         <div onclick="toggleFilter('scene', '通勤')" class="tag tag-s" data-filter-type="scene" data-filter-value="通勤"><span class="tag-t">通勤</span></div>
-                        <div onclick="toggleFilter('scene', '运动')" class="tag tag-s" data-filter-type="scene" data-filter-value="运动"><span class="tag-t">运动</span></div>
-                        <div onclick="toggleFilter('scene', '同性好友见面')" class="tag tag-s" data-filter-type="scene" data-filter-value="同性好友见面"><span class="tag-t">同性好友</span></div>
-                        <div onclick="toggleFilter('scene', '异性好友见面')" class="tag tag-s" data-filter-type="scene" data-filter-value="异性好友见面"><span class="tag-t">异性好友</span></div>
                         <div onclick="toggleFilter('scene', '出片')" class="tag tag-s" data-filter-type="scene" data-filter-value="出片"><span class="tag-t">出片</span></div>
+                        <div onclick="toggleFilter('scene', '户外')" class="tag tag-s" data-filter-type="scene" data-filter-value="户外"><span class="tag-t">户外</span></div>
+                        <div onclick="toggleFilter('scene', '出游')" class="tag tag-s" data-filter-type="scene" data-filter-value="出游"><span class="tag-t">出游</span></div>
                     </div>
                 </div>
                 <div id="ootdGrid" class="grid grid-cols-2 gap-4"></div>
@@ -271,7 +270,7 @@
             acc: { types: ['包包','帽子','首饰','眼镜','腰带','发饰','其他'], icon: '👜' },
             style: ['休闲','气质','可爱','韩系','复古'],
             temp: ['极热 35℃+','热 28-34℃','舒适 20-27℃','凉 13-19℃','冷 10-12℃'],
-            scene: ['通勤','运动','同性好友见面','异性好友见面','出片']
+            scene: ['通勤','出片','户外','出游']
         };
 
         // 初始化
