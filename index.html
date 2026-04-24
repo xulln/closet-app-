@@ -99,7 +99,7 @@
                 </div>
 
                 <!-- 分类网格 -->
-                <div id="closetGrid" class="grid grid-cols-3 gap-3 mb-8">
+                <div id="closetGrid" class="grid grid-cols-4 gap-2 mb-8">
                     <!-- 动态生成分类卡片 -->
                 </div>
 
@@ -361,8 +361,9 @@
             // 重新渲染分类网格
             renderClosetCategories();
 
-            // 默认选中第一个分类
-            const types = tab === 'clothes' ? config.clothes.types : config.acc.types;
+            // 默认选中第一个分类（过滤掉"全身"）
+            let types = tab === 'clothes' ? config.clothes.types : config.acc.types;
+            types = types.filter(type => type !== '全身');
             if (types.length > 0) {
                 selectCategory(types[0]);
             }
@@ -391,7 +392,9 @@
 
         // 渲染分类网格
         function renderClosetCategories() {
-            const types = currentClosetTab === 'clothes' ? config.clothes.types : config.acc.types;
+            let types = currentClosetTab === 'clothes' ? config.clothes.types : config.acc.types;
+            // 过滤掉"全身"
+            types = types.filter(type => type !== '全身');
             const container = document.getElementById('closetGrid');
 
             container.innerHTML = types.map(type => {
@@ -400,10 +403,10 @@
                 const isSelected = currentSelectedCategory === type;
                 return `
                     <div onclick="selectCategory('${type}')"
-                         class="cursor-pointer rounded-2xl p-4 flex flex-col items-center justify-center transition-all ${isSelected ? 'bg-white border-2 border-black' : 'bg-gray-50'}">
-                        <div class="w-10 h-10 mb-2 text-gray-700">${icon}</div>
-                        <span class="text-sm font-bold text-gray-800">${type}</span>
-                        <span class="text-xs text-gray-400">${count}件</span>
+                         class="cursor-pointer rounded-xl p-3 flex flex-col items-center justify-center transition-all ${isSelected ? 'bg-white border-2 border-black' : 'bg-gray-50'}">
+                        <div class="w-8 h-8 mb-1 text-gray-700">${icon}</div>
+                        <span class="text-xs font-bold text-gray-800">${type}</span>
+                        <span class="text-[10px] text-gray-400">${count}件</span>
                     </div>
                 `;
             }).join('');
