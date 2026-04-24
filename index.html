@@ -599,13 +599,15 @@
             const sourceScale = img.naturalWidth / (containerRect.width / scale);
             const sourceX = (-imgTransform.x / scale) * sourceScale;
             const sourceY = (-imgTransform.y / scale) * sourceScale;
-            const sourceSize = containerRect.width * sourceScale / scale;
+            // 根据输出比例计算裁剪尺寸（600:800 = 3:4）
+            const sourceWidth = containerRect.width * sourceScale / scale;
+            const sourceHeight = containerRect.height * sourceScale / scale;
 
             // 绘制
             ctx.drawImage(
                 img,
                 Math.max(0, sourceX), Math.max(0, sourceY),
-                Math.min(img.naturalWidth, sourceSize), Math.min(img.naturalHeight, sourceSize),
+                Math.min(img.naturalWidth, sourceWidth), Math.min(img.naturalHeight, sourceHeight),
                 0, 0, 600, 800
             );
 
