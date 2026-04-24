@@ -41,6 +41,10 @@
         .edit-btn { position: absolute; top: 8px; left: 8px; width: 28px; height: 28px; background: rgba(0,0,0,0.6); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; }
         .empty-state { text-align: center; padding: 60px 20px; color: #9ca3af; }
         .empty-state svg { width: 64px; height: 64px; margin: 0 auto 16px; opacity: 0.3; }
+        .card { touch-action: pan-y; }
+        .card.dragging { opacity: 0.5; }
+        .card.drag-over { transform: scale(1.05); box-shadow: 0 0 0 3px rgba(0,0,0,0.1); }
+        .drag-handle { pointer-events: none; }
     </style>
 </head>
 <body class="bg-white min-h-screen">
@@ -263,7 +267,8 @@
         const IMG_KEY = 'closet_imgs_v1';
         const ORIGINAL_IMG_KEY = 'closet_original_imgs_v1';  // 存储原始图片
         const IMG_TRANSFORM_KEY = 'closet_img_transforms_v1'; // 存储裁剪参数
-        let items = [], imgs = {}, originalImgs = {}, imgTransforms = {};
+        const ORDER_KEY = 'closet_ootd_order_v1'; // 存储全身穿搭排序
+        let items = [], imgs = {}, originalImgs = {}, imgTransforms = {}, ootdOrder = {};
 
         const config = {
             clothes: { types: ['全身','上衣','裤子','半身裙','外套','连衣裙','套装','鞋子'], icon: '👔' },
@@ -305,7 +310,8 @@
                 imgs = JSON.parse(localStorage.getItem(IMG_KEY) || '{}');
                 originalImgs = JSON.parse(localStorage.getItem(ORIGINAL_IMG_KEY) || '{}');
                 imgTransforms = JSON.parse(localStorage.getItem(IMG_TRANSFORM_KEY) || '{}');
-            } catch(e) { items = []; imgs = {}; originalImgs = {}; imgTransforms = {}; }
+                ootdOrder = JSON.parse(localStorage.getItem(ORDER_KEY) || '{}');
+            } catch(e) { items = []; imgs = {}; originalImgs = {}; imgTransforms = {}; ootdOrder = {}; }
         }
 
         function saveData() {
@@ -313,6 +319,7 @@
             localStorage.setItem(IMG_KEY, JSON.stringify(imgs));
             localStorage.setItem(ORIGINAL_IMG_KEY, JSON.stringify(originalImgs));
             localStorage.setItem(IMG_TRANSFORM_KEY, JSON.stringify(imgTransforms));
+            localStorage.setItem(ORDER_KEY, JSON.stringify(ootdOrder));
         }
 
         function exportData() {
@@ -350,10 +357,23 @@
             window.scrollTo(0,0);
         }
 
+        // 拖拽排序状态
+        let dragSrcEl = null;
+        let dragSrcId = null;
+
         // 渲染
         function render() {
             // 首页只显示 type === '全身' 的衣服
             let filtered = items.filter(i => i.type === '全身');
+
+            // 全部状态下应用自定义排序
+            if (currentFilters.type === 'all') {
+                filtered.sort((a, b) => {
+                    const orderA = ootdOrder[a.id] || 0;
+                    const orderB = ootdOrder[b.id] || 0;
+                    return orderA - orderB;
+                });
+            }
 
             if (currentFilters.type === 'dimension') {
                 // 一级分类状态：显示有该维度标签的所有图片
@@ -384,6 +404,88 @@
             const empty = document.getElementById('ootdEmpty');
             if(filtered.length === 0) { grid.innerHTML = ''; empty.classList.remove('hidden'); }
             else { empty.classList.add('hidden'); grid.innerHTML = filtered.map(i => renderCard(i)).join(''); }
+        }
+
+        // 拖拽事件处理
+        function handleDragStart(e, id) {
+            dragSrcEl = e.target;
+            dragSrcId = id;
+            e.target.style.opacity = '0.5';
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleDragEnter(e) {
+            e.preventDefault();
+            const card = e.target.closest('.card');
+            if (card && card !== dragSrcEl) {
+                card.style.transform = 'scale(1.05)';
+                card.style.transition = 'transform 0.2s';
+                card.style.zIndex = '10';
+            }
+        }
+
+        function handleDragLeave(e) {
+            const card = e.target.closest('.card');
+            if (card && card !== dragSrcEl) {
+                card.style.transform = '';
+                card.style.zIndex = '';
+            }
+        }
+
+        function handleDrop(e, targetId) {
+            e.stopPropagation();
+            e.preventDefault();
+
+            const targetCard = e.target.closest('.card');
+            if (targetCard) {
+                targetCard.style.transform = '';
+                targetCard.style.zIndex = '';
+            }
+
+            if (dragSrcId && dragSrcId !== targetId) {
+                // 交换两个项目的排序值
+                const srcOrder = ootdOrder[dragSrcId] || 0;
+                const targetOrder = ootdOrder[targetId] || 0;
+
+                // 找到当前显示的所有全身穿搭项目
+                const fullBodyItems = items.filter(i => i.type === '全身');
+
+                // 如果没有排序数据，初始化所有项目的排序
+                if (Object.keys(ootdOrder).length === 0) {
+                    fullBodyItems.forEach((item, index) => {
+                        ootdOrder[item.id] = index;
+                    });
+                }
+
+                // 交换排序值
+                const temp = ootdOrder[dragSrcId];
+                ootdOrder[dragSrcId] = ootdOrder[targetId];
+                ootdOrder[targetId] = temp;
+
+                // 保存并重新渲染
+                saveData();
+                render();
+            }
+
+            return false;
+        }
+
+        function handleDragEnd(e) {
+            e.target.style.opacity = '1';
+            dragSrcEl = null;
+            dragSrcId = null;
+
+            // 清除所有卡片的高亮效果
+            document.querySelectorAll('.card').forEach(card => {
+                card.style.transform = '';
+                card.style.zIndex = '';
+            });
         }
 
         // 按标签分组排序（specific 模式用）
@@ -454,9 +556,15 @@
                 textContent = '';
             }
 
+            // 全部状态下启用拖拽
+            const isDraggable = currentFilters.type === 'all';
+            const dragAttr = isDraggable ? `draggable="true" ondragstart="handleDragStart(event, '${item.id}')" ondragover="handleDragOver(event)" ondrop="handleDrop(event, '${item.id}')" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)" ondragend="handleDragEnd(event)"` : '';
+            const dragClass = isDraggable ? 'cursor-move' : '';
+
             return `
-                <div class="card relative group" onclick="editItem('${item.id}')">
+                <div class="card relative group ${dragClass}" ${dragAttr} onclick="editItem('${item.id}')" data-id="${item.id}">
                     ${img}
+                    ${isDraggable ? '<div class="drag-handle absolute top-2 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-white/50 rounded-full"></div>' : ''}
                     <button onclick="event.stopPropagation();deleteItem('${item.id}')" class="del-btn">×</button>
                     <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 pt-8 rounded-b-3xl">
                         ${textContent}
