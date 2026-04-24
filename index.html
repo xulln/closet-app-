@@ -41,10 +41,25 @@
         .edit-btn { position: absolute; top: 8px; left: 8px; width: 28px; height: 28px; background: rgba(0,0,0,0.6); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; }
         .empty-state { text-align: center; padding: 60px 20px; color: #9ca3af; }
         .empty-state svg { width: 64px; height: 64px; margin: 0 auto 16px; opacity: 0.3; }
-        .card { touch-action: pan-y; }
-        .card.dragging { opacity: 0.5; }
-        .card.drag-over { transform: scale(1.05); box-shadow: 0 0 0 3px rgba(0,0,0,0.1); }
+        .card { touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+        .card.dragging { opacity: 0.3; transform: scale(0.95); }
+        .card.drag-over { transform: scale(1.03); box-shadow: 0 0 0 3px rgba(0,0,0,0.15); }
         .drag-handle { pointer-events: none; }
+        .drag-ghost {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0.9;
+            transform: scale(1.05);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            border-radius: 2rem;
+            overflow: hidden;
+        }
+        .drag-ghost img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
     </style>
 </head>
 <body class="bg-white min-h-screen">
@@ -301,6 +316,7 @@
             fillSelects();
             render();
             setupSW();
+            initTouchDrag();
         }
 
         // 数据操作
@@ -404,88 +420,232 @@
             const empty = document.getElementById('ootdEmpty');
             if(filtered.length === 0) { grid.innerHTML = ''; empty.classList.remove('hidden'); }
             else { empty.classList.add('hidden'); grid.innerHTML = filtered.map(i => renderCard(i)).join(''); }
+
+            // 重新初始化拖拽事件（DOM 已更新）
+            initTouchDrag();
         }
 
-        // 拖拽事件处理
-        function handleDragStart(e, id) {
-            dragSrcEl = e.target;
-            dragSrcId = id;
-            e.target.style.opacity = '0.5';
-            e.dataTransfer.effectAllowed = 'move';
+        // 触摸拖拽状态
+        let dragItemId = null;
+        let dragGhost = null;
+        let startX = 0, startY = 0;
+        let ghostX = 0, ghostY = 0;
+        let touchStartTime = 0;
+        let isDragging = false;
+        let longPressTimer = null;
+
+        // 初始化触摸拖拽
+        function initTouchDrag() {
+            const grid = document.getElementById('ootdGrid');
+            if (!grid) return;
+
+            grid.addEventListener('touchstart', handleTouchStart, { passive: false });
+            grid.addEventListener('touchmove', handleTouchMove, { passive: false });
+            grid.addEventListener('touchend', handleTouchEnd, { passive: false });
+            grid.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
+            // 鼠标支持
+            grid.addEventListener('mousedown', handleMouseDown);
+            grid.addEventListener('mousemove', handleMouseMove);
+            grid.addEventListener('mouseup', handleMouseUp);
         }
 
-        function handleDragOver(e) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            return false;
-        }
-
-        function handleDragEnter(e) {
-            e.preventDefault();
-            const card = e.target.closest('.card');
-            if (card && card !== dragSrcEl) {
-                card.style.transform = 'scale(1.05)';
-                card.style.transition = 'transform 0.2s';
-                card.style.zIndex = '10';
-            }
-        }
-
-        function handleDragLeave(e) {
-            const card = e.target.closest('.card');
-            if (card && card !== dragSrcEl) {
-                card.style.transform = '';
-                card.style.zIndex = '';
-            }
-        }
-
-        function handleDrop(e, targetId) {
-            e.stopPropagation();
-            e.preventDefault();
-
-            const targetCard = e.target.closest('.card');
-            if (targetCard) {
-                targetCard.style.transform = '';
-                targetCard.style.zIndex = '';
-            }
-
-            if (dragSrcId && dragSrcId !== targetId) {
-                // 交换两个项目的排序值
-                const srcOrder = ootdOrder[dragSrcId] || 0;
-                const targetOrder = ootdOrder[targetId] || 0;
-
-                // 找到当前显示的所有全身穿搭项目
-                const fullBodyItems = items.filter(i => i.type === '全身');
-
-                // 如果没有排序数据，初始化所有项目的排序
-                if (Object.keys(ootdOrder).length === 0) {
-                    fullBodyItems.forEach((item, index) => {
-                        ootdOrder[item.id] = index;
-                    });
+        function getCardFromPoint(x, y) {
+            const cards = document.querySelectorAll('#ootdGrid .card');
+            for (let card of cards) {
+                const rect = card.getBoundingClientRect();
+                if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+                    return card;
                 }
-
-                // 交换排序值
-                const temp = ootdOrder[dragSrcId];
-                ootdOrder[dragSrcId] = ootdOrder[targetId];
-                ootdOrder[targetId] = temp;
-
-                // 保存并重新渲染
-                saveData();
-                render();
             }
-
-            return false;
+            return null;
         }
 
-        function handleDragEnd(e) {
-            e.target.style.opacity = '1';
-            dragSrcEl = null;
-            dragSrcId = null;
+        function handleTouchStart(e) {
+            if (currentFilters.type !== 'all') return;
 
-            // 清除所有卡片的高亮效果
-            document.querySelectorAll('.card').forEach(card => {
-                card.style.transform = '';
-                card.style.zIndex = '';
+            const touch = e.touches[0];
+            const card = getCardFromPoint(touch.clientX, touch.clientY);
+            if (!card) return;
+
+            dragItemId = card.dataset.id;
+            startX = touch.clientX;
+            startY = touch.clientY;
+            touchStartTime = Date.now();
+
+            // 长按 300ms 开始拖拽
+            longPressTimer = setTimeout(() => {
+                startDrag(card, touch.clientX, touch.clientY);
+            }, 300);
+        }
+
+        function handleTouchMove(e) {
+            if (!dragItemId) return;
+            if (!isDragging && longPressTimer) {
+                // 如果移动距离超过阈值，取消长按计时
+                const touch = e.touches[0];
+                const moveDist = Math.hypot(touch.clientX - startX, touch.clientY - startY);
+                if (moveDist > 10) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                    dragItemId = null;
+                }
+                return;
+            }
+            if (!isDragging) return;
+
+            e.preventDefault();
+            const touch = e.touches[0];
+            updateGhostPosition(touch.clientX, touch.clientY);
+            highlightTargetCard(touch.clientX, touch.clientY);
+        }
+
+        function handleTouchEnd(e) {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            if (!isDragging) {
+                dragItemId = null;
+                return;
+            }
+
+            const touch = e.changedTouches[0];
+            const targetCard = getCardFromPoint(touch.clientX, touch.clientY);
+            const targetId = targetCard?.dataset.id;
+
+            if (targetId && targetId !== dragItemId) {
+                swapItems(dragItemId, targetId);
+            }
+
+            endDrag();
+        }
+
+        // 鼠标支持
+        function handleMouseDown(e) {
+            if (currentFilters.type !== 'all') return;
+
+            const card = e.target.closest('.card');
+            if (!card) return;
+
+            e.preventDefault();
+            dragItemId = card.dataset.id;
+            startX = e.clientX;
+            startY = e.clientY;
+            startDrag(card, e.clientX, e.clientY);
+        }
+
+        function handleMouseMove(e) {
+            if (!isDragging || !dragItemId) return;
+            updateGhostPosition(e.clientX, e.clientY);
+            highlightTargetCard(e.clientX, e.clientY);
+        }
+
+        function handleMouseUp(e) {
+            if (!isDragging || !dragItemId) return;
+
+            const targetCard = getCardFromPoint(e.clientX, e.clientY);
+            const targetId = targetCard?.dataset.id;
+
+            if (targetId && targetId !== dragItemId) {
+                swapItems(dragItemId, targetId);
+            }
+
+            endDrag();
+        }
+
+        function startDrag(card, x, y) {
+            if (!card) return;
+
+            isDragging = true;
+            card.classList.add('dragging');
+
+            // 创建拖拽幽灵元素
+            const rect = card.getBoundingClientRect();
+            dragGhost = card.cloneNode(true);
+            dragGhost.className = 'drag-ghost';
+            dragGhost.style.width = rect.width + 'px';
+            dragGhost.style.height = rect.height + 'px';
+            dragGhost.style.left = rect.left + 'px';
+            dragGhost.style.top = rect.top + 'px';
+
+            // 移除删除按钮和文字
+            const delBtn = dragGhost.querySelector('.del-btn');
+            if (delBtn) delBtn.remove();
+            const textDiv = dragGhost.querySelector('.absolute.bottom-0');
+            if (textDiv) textDiv.remove();
+            const dragHandle = dragGhost.querySelector('.drag-handle');
+            if (dragHandle) dragHandle.remove();
+
+            document.body.appendChild(dragGhost);
+
+            ghostX = rect.left;
+            ghostY = rect.top;
+
+            // 触觉反馈
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+        }
+
+        function updateGhostPosition(x, y) {
+            if (!dragGhost) return;
+
+            const offsetX = x - startX;
+            const offsetY = y - startY;
+
+            dragGhost.style.left = (ghostX + offsetX) + 'px';
+            dragGhost.style.top = (ghostY + offsetY) + 'px';
+        }
+
+        function highlightTargetCard(x, y) {
+            document.querySelectorAll('#ootdGrid .card').forEach(card => {
+                card.classList.remove('drag-over');
             });
+
+            const targetCard = getCardFromPoint(x, y);
+            if (targetCard && targetCard.dataset.id !== dragItemId) {
+                targetCard.classList.add('drag-over');
+            }
+        }
+
+        function swapItems(srcId, targetId) {
+            // 找到当前显示的所有全身穿搭项目
+            const fullBodyItems = items.filter(i => i.type === '全身');
+
+            // 如果没有排序数据，初始化
+            if (Object.keys(ootdOrder).length === 0) {
+                fullBodyItems.forEach((item, index) => {
+                    ootdOrder[item.id] = index;
+                });
+            }
+
+            // 交换排序值
+            const temp = ootdOrder[srcId];
+            ootdOrder[srcId] = ootdOrder[targetId];
+            ootdOrder[targetId] = temp;
+
+            saveData();
+            render();
+        }
+
+        function endDrag() {
+            const card = document.querySelector(`#ootdGrid .card[data-id="${dragItemId}"]`);
+            if (card) {
+                card.classList.remove('dragging');
+            }
+
+            document.querySelectorAll('#ootdGrid .card').forEach(c => {
+                c.classList.remove('drag-over');
+            });
+
+            if (dragGhost) {
+                dragGhost.remove();
+                dragGhost = null;
+            }
+
+            dragItemId = null;
+            isDragging = false;
         }
 
         // 按标签分组排序（specific 模式用）
@@ -558,11 +718,10 @@
 
             // 全部状态下启用拖拽
             const isDraggable = currentFilters.type === 'all';
-            const dragAttr = isDraggable ? `draggable="true" ondragstart="handleDragStart(event, '${item.id}')" ondragover="handleDragOver(event)" ondrop="handleDrop(event, '${item.id}')" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)" ondragend="handleDragEnd(event)"` : '';
             const dragClass = isDraggable ? 'cursor-move' : '';
 
             return `
-                <div class="card relative group ${dragClass}" ${dragAttr} onclick="editItem('${item.id}')" data-id="${item.id}">
+                <div class="card relative group ${dragClass}" onclick="editItem('${item.id}')" data-id="${item.id}">
                     ${img}
                     ${isDraggable ? '<div class="drag-handle absolute top-2 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-white/50 rounded-full"></div>' : ''}
                     <button onclick="event.stopPropagation();deleteItem('${item.id}')" class="del-btn">×</button>
