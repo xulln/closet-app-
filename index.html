@@ -61,7 +61,7 @@
             </div>
             <div class="flex space-x-8 mb-2">
                 <button onclick="setTab('ootd')" id="tab-ootd" class="tab active">全身穿搭<div class="tab-dot"></div></button>
-                <button onclick="setTab('closet')" id="tab-closet" class="tab">分类浏览<div class="tab-dot"></div></button>
+                <button onclick="setTab('closet')" id="tab-closet" class="tab">单品分类<div class="tab-dot"></div></button>
             </div>
         </header>
 
@@ -239,8 +239,8 @@
         let items = [], imgs = {}, originalImgs = {}, imgTransforms = {};
 
         const config = {
-            clothes: { types: ['全身','上衣','裤子','裙子','外套','连衣裙','套装'], icon: '👔' },
-            acc: { types: ['包包','鞋子','帽子','首饰','眼镜','腰带'], icon: '👜' },
+            clothes: { types: ['全身','上衣','裤子','半身裙','外套','连衣裙','套装','鞋子'], icon: '👔' },
+            acc: { types: ['包包','帽子','首饰','眼镜','腰带','发饰','其他'], icon: '👜' },
             style: ['休闲','气质','可爱','韩系','复古'],
             temp: ['极热 35℃+','热 28-34℃','舒适 20-27℃','凉 13-19℃','冷 10-12℃'],
             scene: ['通勤','运动','同性好友见面','异性好友见面','出片']
@@ -387,18 +387,20 @@
             const icons = {
                 '上衣': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8 L12 16 L18 18 L18 40 L30 40 L30 18 L36 16 L32 8 Q24 12 16 8Z"/></svg>',
                 '裤子': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8 L34 8 L36 40 L28 40 L26 20 L22 20 L20 40 L12 40 Z"/></svg>',
-                '裙子': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8 L32 8 L38 40 L10 40 Z"/><line x1="14" y1="20" x2="34" y2="20"/></svg>',
+                '半身裙': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8 L32 8 L38 40 L10 40 Z"/><line x1="14" y1="20" x2="34" y2="20"/></svg>',
                 '全身': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M24 4 Q28 4 28 8 Q28 12 24 12 Q20 12 20 8 Q20 4 24 4Z"/><path d="M18 14 L30 14 L36 44 L28 44 L26 30 L22 30 L20 44 L12 44 Z"/></svg>',
                 '外套': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8 L36 8 L38 40 L10 40 Z"/><line x1="24" y1="8" x2="24" y2="40"/><line x1="14" y1="12" x2="22" y2="18"/><line x1="34" y1="12" x2="26" y2="18"/></svg>',
                 '连衣裙': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M24 4 Q28 4 28 8 Q28 12 24 12 Q20 12 20 8 Q20 4 24 4Z"/><path d="M18 14 L30 14 L34 26 L14 26 Z"/><path d="M14 26 L10 44 L22 44 L24 30 L26 44 L38 44 L34 26"/></svg>',
                 '套装': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8 L34 8 L36 40 L12 40 Z"/><line x1="24" y1="8" x2="24" y2="40"/><path d="M16 12 L24 20 L32 12"/></svg>',
+                '鞋子': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 32 Q8 24 20 24 L36 28 Q42 30 42 36 L42 40 L8 40 Z"/><line x1="20" y1="24" x2="20" y2="32"/></svg>',
                 '全部': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12"/><rect x="18" y="6" width="12" height="12"/><rect x="30" y="6" width="12" height="12"/><rect x="6" y="18" width="12" height="12"/><rect x="18" y="18" width="12" height="12"/><rect x="30" y="18" width="12" height="12"/><rect x="6" y="30" width="12" height="12"/><rect x="18" y="30" width="12" height="12"/><rect x="30" y="30" width="12" height="12"/></svg>',
                 '包包': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20 L36 20 L38 42 L10 42 Z"/><path d="M16 20 Q16 8 24 8 Q32 8 32 20"/></svg>',
-                '鞋子': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 32 Q8 24 20 24 L36 28 Q42 30 42 36 L42 40 L8 40 Z"/><line x1="20" y1="24" x2="20" y2="32"/></svg>',
                 '帽子': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 32 L40 32 L36 16 Q24 12 12 16 Z"/><line x1="6" y1="32" x2="42" y2="32"/></svg>',
                 '首饰': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="20" r="12"/><path d="M18 28 L14 44 L34 44 L30 28"/></svg>',
                 '眼镜': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="24" r="8"/><circle cx="34" cy="24" r="8"/><line x1="22" y1="24" x2="26" y2="24"/><line x1="6" y1="24" x2="2" y2="20"/><line x1="42" y1="24" x2="46" y2="20"/></svg>',
-                '腰带': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="18" width="40" height="12" rx="2"/><rect x="22" y="18" width="4" height="12"/><line x1="4" y1="24" x2="22" y2="24"/><line x1="26" y1="24" x2="44" y2="24"/></svg>'
+                '腰带': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="18" width="40" height="12" rx="2"/><rect x="22" y="18" width="4" height="12"/><line x1="4" y1="24" x2="22" y2="24"/><line x1="26" y1="24" x2="44" y2="24"/></svg>',
+                '发饰': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8 Q24 4 36 8"/><path d="M12 16 Q24 12 36 16"/><path d="M12 24 Q24 20 36 24"/></svg>',
+                '其他': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="8"/><line x1="24" y1="12" x2="24" y2="36"/><line x1="12" y1="24" x2="36" y2="24"/></svg>'
             };
             return icons[type] || '';
         }
