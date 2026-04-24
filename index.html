@@ -246,7 +246,7 @@
                     <textarea id="washNote" placeholder="洗涤注意事项..." class="w-full rounded-2xl py-4 px-5 text-sm font-bold h-20 resize-none"></textarea>
                 </div>
 
-                <button onclick="saveItem()" class="w-full bg-black text-white py-4 rounded-2xl font-bold active:scale-95 transition-transform shadow-lg">保存</button>
+                <button onclick="saveItem()" class="w-full bg-black text-white py-4 rounded-2xl font-bold active:scale-95 shadow-lg" style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;">保存</button>
             </div>
         </div>
     </div>
@@ -606,7 +606,7 @@
         // 显示筛选维度
         function showFilterDimension(dimension) {
             // 如果点击的是当前已展开的维度，则收起
-            if (currentFilters.dimension === dimension) {
+            if (dimension && currentFilters.dimension === dimension) {
                 showFilterDimension(null);
                 return;
             }
@@ -650,16 +650,24 @@
         }
 
         function setFilter(f) {
+            alert('setFilter called: ' + f);
             if (f === 'all') {
-                // 重置所有筛选
+                alert('Resetting to all');
+                // 重置所有筛选状态
                 currentFilters = { type: 'all', dimension: null, style: [], temp: [], scene: [] };
 
-                // 更新UI：全部按钮选中
+                // 更新UI：全部按钮选中，取消其他所有按钮选中
                 document.querySelector('[data-filter="all"]').classList.add('selected');
                 document.querySelectorAll('[data-filter-type]').forEach(t => t.classList.remove('selected'));
+                document.getElementById('dim-style').classList.remove('selected');
+                document.getElementById('dim-temp').classList.remove('selected');
+                document.getElementById('dim-scene').classList.remove('selected');
 
-                // 隐藏所有维度具体标签
-                showFilterDimension(null);
+                // 隐藏所有维度具体标签区域
+                document.getElementById('filter-style').classList.add('hidden');
+                document.getElementById('filter-temp').classList.add('hidden');
+                document.getElementById('filter-scene').classList.add('hidden');
+                alert('All reset done, rendering');
             }
             render();
         }
@@ -1089,50 +1097,63 @@
 
         // 保存
         function saveItem() {
-            const id = document.getElementById('editId').value || Date.now().toString();
-            const isNew = !document.getElementById('editId').value;
-            const typeValue = document.getElementById('itemType').value;
+            console.log('saveItem called');
+            try {
+                const id = document.getElementById('editId').value || Date.now().toString();
+                const isNew = !document.getElementById('editId').value;
+                const typeValue = document.getElementById('itemType').value;
 
-            // 自动生成名称
-            const existingCount = items.filter(i => i.type === typeValue).length;
-            const name = isNew ? `${typeValue} ${existingCount + 1}` : (items.find(i => i.id === id)?.name || typeValue);
+                // 自动生成名称
+                const existingCount = items.filter(i => i.type === typeValue).length;
+                const name = isNew ? `${typeValue} ${existingCount + 1}` : (items.find(i => i.id === id)?.name || typeValue);
 
-            const item = {
-                id,
-                name,
-                type: typeValue,
-                style: document.getElementById('itemStyle').value,
-                temp: document.getElementById('itemTemp').value,
-                scene: document.getElementById('itemScene').value,
-                wash: document.getElementById('washNote').value,
-                updated: Date.now()
-            };
-
-            if(isNew) items.push(item);
-            else items = items.map(i => i.id === id ? item : i);
-
-            // 保存图片（应用手势变换）
-            const previewImg = document.getElementById('previewImg');
-            const transformedData = getTransformedImageData();
-            if(transformedData) {
-                imgs[id] = transformedData;
-                // 同时保存原始图片用于重新编辑
-                if(previewImg.dataset.original) {
-                    originalImgs[id] = previewImg.dataset.original;
-                }
-                // 保存裁剪参数，用于编辑时恢复状态
-                imgTransforms[id] = {
-                    scale: imgTransform.scale,
-                    x: imgTransform.x,
-                    y: imgTransform.y
+                const item = {
+                    id,
+                    name,
+                    type: typeValue,
+                    style: document.getElementById('itemStyle').value,
+                    temp: document.getElementById('itemTemp').value,
+                    scene: document.getElementById('itemScene').value,
+                    wash: document.getElementById('washNote').value,
+                    updated: Date.now()
                 };
-            } else if(previewImg.dataset.data) {
-                imgs[id] = previewImg.dataset.data;
-            }
 
-            saveData();
-            closeModal('addModal');
-            render();
+                if(isNew) items.push(item);
+                else items = items.map(i => i.id === id ? item : i);
+
+                // 保存图片（应用手势变换）
+                const previewImg = document.getElementById('previewImg');
+                if(previewImg) {
+                    const transformedData = getTransformedImageData();
+                    if(transformedData) {
+                        imgs[id] = transformedData;
+                        // 同时保存原始图片用于重新编辑
+                        if(previewImg.dataset.original) {
+                            originalImgs[id] = previewImg.dataset.original;
+                        }
+                        // 保存裁剪参数，用于编辑时恢复状态
+                        imgTransforms[id] = {
+                            scale: imgTransform.scale,
+                            x: imgTransform.x,
+                            y: imgTransform.y
+                        };
+                    } else if(previewImg.dataset.data) {
+                        imgs[id] = previewImg.dataset.data;
+                    }
+                }
+
+                saveData();
+                console.log('saveData done, closing modal');
+
+                // 成功后立即关闭弹窗
+                closeModal('addModal');
+                render();
+            } catch(e) {
+                console.error('保存出错:', e);
+                // 即使出错也关闭弹窗
+                closeModal('addModal');
+                render();
+            }
         }
 
         function deleteItem(id) {
