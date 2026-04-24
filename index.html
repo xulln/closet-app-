@@ -284,13 +284,8 @@
 
         // 渲染
         function render() {
-            const filter = document.querySelector('#filterGroup .selected')?.dataset.filter || 'all';
-            let filtered = items;
-            if (filter === 'clothes') {
-                filtered = items.filter(i => i.categoryTag === '服装');
-            } else if (filter === 'mix') {
-                filtered = items.filter(i => i.categoryTag === '服装+配饰');
-            }
+            // 首页只显示 type === '全身' 的衣服
+            let filtered = items.filter(i => i.type === '全身');
             const grid = document.getElementById('ootdGrid');
             const empty = document.getElementById('ootdEmpty');
             if(filtered.length === 0) { grid.innerHTML = ''; empty.classList.remove('hidden'); }
@@ -455,8 +450,8 @@
                 return;
             }
 
-            // 衣服：显示类型标签选择（服装/服装+配饰）
-            document.getElementById('categoryTagSection').classList.remove('hidden');
+            // 衣服：只有"全身"才显示类型标签选择（服装/服装+配饰）
+            document.getElementById('categoryTagSection').classList.toggle('hidden', !isFullBody);
 
             // 衣服：选择"全身"时显示标签，其他选项显示洗涤方式
             document.getElementById('tagSection').classList.toggle('hidden', !isFullBody);
