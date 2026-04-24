@@ -537,6 +537,10 @@
                 document.getElementById('previewWrapper').classList.remove('hidden');
                 document.getElementById('uploadLabel').classList.add('hidden');
 
+                // 显示编辑按钮
+                const editBtn = document.getElementById('editImageBtn');
+                if (editBtn) editBtn.classList.remove('hidden');
+
                 // 恢复之前保存的裁剪参数（如果有）
                 if(imgTransforms[id]) {
                     imgTransform.scale = imgTransforms[id].scale;
@@ -551,6 +555,9 @@
             } else {
                 document.getElementById('previewWrapper').classList.add('hidden');
                 document.getElementById('uploadLabel').classList.remove('hidden');
+                // 隐藏编辑按钮
+                const editBtn = document.getElementById('editImageBtn');
+                if (editBtn) editBtn.classList.add('hidden');
             }
 
             onTypeChange();
