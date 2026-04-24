@@ -604,19 +604,43 @@
             canvas.width = 600;
             canvas.height = 800;
 
-            // 计算可见区域的裁剪
             const containerRect = container.getBoundingClientRect();
             const scale = imgTransform.scale;
 
-            // 计算相对于原始图片的裁剪区域
-            const sourceScale = img.naturalWidth / (containerRect.width / scale);
-            const sourceX = (-imgTransform.x / scale) * sourceScale;
-            const sourceY = (-imgTransform.y / scale) * sourceScale;
-            // 根据输出比例计算裁剪尺寸（600:800 = 3:4）
+            // 计算 object-fit: cover 下的图片显示尺寸（与浏览器渲染一致）
+            const imgRatio = img.naturalWidth / img.naturalHeight;
+            const containerRatio = containerRect.width / containerRect.height;
+
+            let displayWidth, displayHeight, initialX, initialY;
+            if (imgRatio > containerRatio) {
+                // 图片更宽，按高度填充，左右被裁剪
+                displayHeight = containerRect.height;
+                displayWidth = displayHeight * imgRatio;
+                initialX = (containerRect.width - displayWidth) / 2;
+                initialY = 0;
+            } else {
+                // 图片更高或等比例，按宽度填充，上下被裁剪
+                displayWidth = containerRect.width;
+                displayHeight = displayWidth / imgRatio;
+                initialX = 0;
+                initialY = (containerRect.height - displayHeight) / 2;
+            }
+
+            // 计算相对于原始图片的缩放比例
+            const sourceScale = img.naturalWidth / displayWidth;
+
+            // 计算可见区域的裁剪（考虑手势变换和 object-fit: cover 的初始偏移）
+            // 实际显示的图片位置 = 初始偏移 + 手势位移
+            const displayedX = initialX + imgTransform.x;
+            const displayedY = initialY + imgTransform.y;
+
+            // 计算从原始图片的哪个位置开始裁剪
+            const sourceX = -displayedX * sourceScale / scale;
+            const sourceY = -displayedY * sourceScale / scale;
             const sourceWidth = containerRect.width * sourceScale / scale;
             const sourceHeight = containerRect.height * sourceScale / scale;
 
-            // 绘制
+            // 绘制裁剪后的图片到 canvas
             ctx.drawImage(
                 img,
                 Math.max(0, sourceX), Math.max(0, sourceY),
