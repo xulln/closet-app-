@@ -405,6 +405,7 @@
 
             // 编辑时加载原始图片（如果有），否则使用裁剪后的图片
             const imgToEdit = originalImgs[id] || imgs[id];
+            console.log('编辑物品:', id, '原始图片存在:', !!originalImgs[id], '使用图片:', imgToEdit === originalImgs[id] ? '原始' : '裁剪后');
             if(imgToEdit) {
                 const previewImg = document.getElementById('previewImg');
                 previewImg.src = imgToEdit;
