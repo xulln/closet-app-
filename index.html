@@ -375,8 +375,8 @@
             try {
                 // 从 IndexedDB 加载
                 items = await getAllItemsFromStore('items') || [];
-                imgs = await getAllFromStore('images') || {};
-                originalImgs = await getAllFromStore('originalImages') || {};
+                imgs = await getAllImagesFromStore('images') || {};
+                originalImgs = await getAllImagesFromStore('originalImages') || {};
                 imgTransforms = await getAllFromStore('transforms') || {};
                 ootdOrder = await getAllFromStore('order') || {};
 
@@ -406,7 +406,7 @@
             });
         }
 
-        // 从 store 获取所有数据
+        // 从 store 获取所有数据（JSON 格式）
         function getAllFromStore(storeName) {
             return new Promise((resolve, reject) => {
                 const transaction = db.transaction(storeName, 'readonly');
@@ -418,6 +418,26 @@
                     request.result.forEach(item => {
                         result[item.id] = item.data;
                     });
+                    resolve(result);
+                };
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // 从 store 获取所有图片（Blob 转 base64）
+        async function getAllImagesFromStore(storeName) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(storeName, 'readonly');
+                const store = transaction.objectStore(storeName);
+                const request = store.getAll();
+
+                request.onsuccess = async () => {
+                    const result = {};
+                    for (const item of request.result) {
+                        if (item.blob) {
+                            result[item.id] = await blobToBase64(item.blob);
+                        }
+                    }
                     resolve(result);
                 };
                 request.onerror = () => reject(request.error);
@@ -694,8 +714,10 @@
         let isDragging = false;
         let longPressTimer = null;
 
-        // 初始化触摸拖拽
+        // 初始化触摸拖拽（只执行一次）
+        let dragInitialized = false;
         function initTouchDrag() {
+            if (dragInitialized) return;
             const grid = document.getElementById('ootdGrid');
             if (!grid) return;
 
@@ -708,6 +730,8 @@
             grid.addEventListener('mousedown', handleMouseDown);
             grid.addEventListener('mousemove', handleMouseMove);
             grid.addEventListener('mouseup', handleMouseUp);
+
+            dragInitialized = true;
         }
 
         function getCardFromPoint(x, y) {
