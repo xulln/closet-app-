@@ -356,23 +356,29 @@
             // 首页只显示 type === '全身' 的衣服
             let filtered = items.filter(i => i.type === '全身');
 
-            // 根据筛选条件过滤
-            if (currentFilters.type !== 'all') {
-                // 风格筛选
+            if (currentFilters.type === 'dimension') {
+                // 一级分类状态：显示有该维度标签的所有图片
+                if (currentFilters.dimension === 'style') {
+                    filtered = filtered.filter(i => i.style); // 有风格标签的
+                    filtered = sortItemsByDimension(filtered, 'style');
+                } else if (currentFilters.dimension === 'temp') {
+                    filtered = filtered.filter(i => i.temp); // 有温度标签的
+                    filtered = sortItemsByDimension(filtered, 'temp');
+                } else if (currentFilters.dimension === 'scene') {
+                    filtered = filtered.filter(i => i.scene); // 有场合标签的
+                    filtered = sortItemsByDimension(filtered, 'scene');
+                }
+            } else if (currentFilters.type === 'specific') {
+                // 二级分类状态：只显示选中标签的图片
                 if (currentFilters.style.length > 0) {
                     filtered = filtered.filter(i => currentFilters.style.includes(i.style));
                 }
-                // 温度筛选
                 if (currentFilters.temp.length > 0) {
                     filtered = filtered.filter(i => currentFilters.temp.includes(i.temp));
                 }
-                // 场合筛选
                 if (currentFilters.scene.length > 0) {
                     filtered = filtered.filter(i => currentFilters.scene.includes(i.scene));
                 }
-
-                // 按标签分组排序（同类排在一起）
-                filtered = sortItemsByTags(filtered);
             }
 
             const grid = document.getElementById('ootdGrid');
@@ -381,7 +387,7 @@
             else { empty.classList.add('hidden'); grid.innerHTML = filtered.map(i => renderCard(i)).join(''); }
         }
 
-        // 按标签分组排序
+        // 按标签分组排序（specific 模式用）
         function sortItemsByTags(items) {
             return items.sort((a, b) => {
                 // 按风格排序
@@ -412,6 +418,16 @@
             });
         }
 
+        // 按维度分组排序（dimension 模式用）
+        function sortItemsByDimension(items, dimension) {
+            const configOrder = config[dimension]; // 标签顺序配置
+            return items.sort((a, b) => {
+                const indexA = configOrder.indexOf(a[dimension]);
+                const indexB = configOrder.indexOf(b[dimension]);
+                return indexA - indexB;
+            });
+        }
+
         function renderCard(item) {
             const img = imgs[item.id] ? `<img src="${imgs[item.id]}">` :
                 `<svg class="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>`;
@@ -425,21 +441,18 @@
                     <p class="text-white/80 text-[10px] leading-relaxed">${item.temp || '无温度'}</p>
                     <p class="text-white/60 text-[10px] leading-relaxed">${item.scene || '无场合'}</p>
                 `;
-            } else {
-                // 具体筛选：只显示对应的标签
-                const labels = [];
-                if (currentFilters.style.length > 0 && item.style) labels.push(item.style);
-                if (currentFilters.temp.length > 0 && item.temp) labels.push(item.temp);
-                if (currentFilters.scene.length > 0 && item.scene) labels.push(item.scene);
+            } else if (currentFilters.type === 'dimension') {
+                // 一级分类状态：只显示当前维度的标签名称
+                let label = '';
+                if (currentFilters.dimension === 'style') label = item.style || '';
+                else if (currentFilters.dimension === 'temp') label = item.temp || '';
+                else if (currentFilters.dimension === 'scene') label = item.scene || '';
 
-                if (labels.length > 0) {
-                    textContent = labels.map(label =>
-                        `<p class="text-white text-[10px] leading-relaxed">${label}</p>`
-                    ).join('');
-                } else {
-                    // 如果没有匹配的标签，显示空占位
-                    textContent = '<p class="text-white/40 text-[10px] leading-relaxed">-</p>';
-                }
+                textContent = label ?
+                    `<p class="text-white text-[10px] leading-relaxed">${label}</p>` : '';
+            } else if (currentFilters.type === 'specific') {
+                // 二级分类状态：图片无文字
+                textContent = '';
             }
 
             return `
@@ -458,10 +471,11 @@
 
         // 全身穿搭页面筛选状态
         let currentFilters = {
-            type: 'all',  // 'all' 或 'filtered'
-            style: [],    // 风格多选数组
-            temp: [],     // 温度多选数组
-            scene: []     // 场合多选数组
+            type: 'all',           // 'all' | 'dimension' | 'specific'
+            dimension: null,       // 当前展开的一级维度: 'style' | 'temp' | 'scene' | null
+            style: [],             // 选中的具体风格标签
+            temp: [],              // 选中的具体温度标签
+            scene: []              // 选中的具体场合标签
         };
 
         // 切换服装/配饰标签
@@ -591,6 +605,12 @@
         // 筛选
         // 显示筛选维度
         function showFilterDimension(dimension) {
+            // 如果点击的是当前已展开的维度，则收起
+            if (currentFilters.dimension === dimension) {
+                showFilterDimension(null);
+                return;
+            }
+
             // 隐藏所有具体标签
             document.getElementById('filter-style').classList.add('hidden');
             document.getElementById('filter-temp').classList.add('hidden');
@@ -601,17 +621,38 @@
             document.getElementById('dim-temp').classList.remove('selected');
             document.getElementById('dim-scene').classList.remove('selected');
 
+            // 取消全部按钮选中
+            document.querySelector('[data-filter="all"]').classList.remove('selected');
+
+            // 清除二级标签选中状态
+            document.querySelectorAll('[data-filter-type]').forEach(t => t.classList.remove('selected'));
+
             // 显示选中的维度
             if (dimension) {
                 document.getElementById(`filter-${dimension}`).classList.remove('hidden');
                 document.getElementById(`dim-${dimension}`).classList.add('selected');
+
+                // 设置状态为 dimension 模式
+                currentFilters.type = 'dimension';
+                currentFilters.dimension = dimension;
+                // 清空具体标签选择
+                currentFilters.style = [];
+                currentFilters.temp = [];
+                currentFilters.scene = [];
+            } else {
+                // 收起状态，回到全部
+                currentFilters.type = 'all';
+                currentFilters.dimension = null;
+                document.querySelector('[data-filter="all"]').classList.add('selected');
             }
+
+            render();
         }
 
         function setFilter(f) {
             if (f === 'all') {
                 // 重置所有筛选
-                currentFilters = { type: 'all', style: [], temp: [], scene: [] };
+                currentFilters = { type: 'all', dimension: null, style: [], temp: [], scene: [] };
 
                 // 更新UI：全部按钮选中
                 document.querySelector('[data-filter="all"]').classList.add('selected');
@@ -640,14 +681,11 @@
 
             // 更新筛选状态
             if (currentFilters.style.length === 0 && currentFilters.temp.length === 0 && currentFilters.scene.length === 0) {
-                // 没有任何筛选，回到全部模式
-                currentFilters.type = 'all';
-                document.querySelector('[data-filter="all"]').classList.add('selected');
-                // 隐藏所有维度
-                showFilterDimension(null);
+                // 没有任何筛选，回到 dimension 模式（保持当前维度展开）
+                currentFilters.type = 'dimension';
             } else {
-                // 有筛选条件
-                currentFilters.type = 'filtered';
+                // 有筛选条件，进入 specific 模式
+                currentFilters.type = 'specific';
                 document.querySelector('[data-filter="all"]').classList.remove('selected');
             }
 
