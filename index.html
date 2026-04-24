@@ -486,7 +486,7 @@
         function openAdd(mode) {
             currentAddMode = mode;
             closeModal('choiceModal');
-            document.getElementById('addTitle').textContent = '添加单品';
+            document.getElementById('addTitle').textContent = mode === 'clothes' ? '添加衣服' : '添加配饰';
             document.getElementById('editId').value = '';
 
             // 清空上次上传的图片
