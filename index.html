@@ -333,6 +333,19 @@
                     </div>
                 </div>
 
+                <!-- 重新压缩按钮 -->
+                <div id="recompressSection" class="hidden">
+                    <button onclick="recompressAllImages()" class="w-full bg-orange-100 text-orange-700 py-3 rounded-2xl font-bold text-sm active:scale-95 transition-transform">
+                        重新压缩所有图片
+                    </button>
+                    <p class="text-xs text-orange-500 mt-2 text-center">可释放存储空间，但画质会进一步下降</p>
+                </div>
+
+                <!-- 压缩完成提示（初始隐藏） -->
+                <div id="recompressDone" class="hidden bg-green-50 rounded-2xl p-4">
+                    <p class="text-xs text-green-600 text-center font-bold">✓ 所有图片已重新压缩</p>
+                </div>
+
                 <!-- 存储提示 -->
                 <div class="bg-blue-50 rounded-2xl p-4">
                     <p class="text-xs text-blue-600 leading-relaxed">
@@ -1934,6 +1947,85 @@
             }
         }
 
+        // 批量重新压缩所有图片
+        async function recompressAllImages() {
+            if (!confirm('确定要重新压缩所有图片吗？\n\n这将基于现有图片再次压缩，画质会进一步下降，但可释放大量存储空间。')) {
+                return;
+            }
+
+            const imageIds = Object.keys(imgs);
+            if (imageIds.length === 0) {
+                showToast('没有需要压缩的图片');
+                return;
+            }
+
+            let processed = 0;
+            const total = imageIds.length;
+
+            showToast(`开始压缩，共 ${total} 张图片...`);
+
+            for (const id of imageIds) {
+                const base64 = imgs[id];
+                if (!base64) continue;
+
+                try {
+                    // 加载图片
+                    const img = new Image();
+                    await new Promise((resolve, reject) => {
+                        img.onload = resolve;
+                        img.onerror = reject;
+                        img.src = base64;
+                    });
+
+                    // 重新压缩展示图
+                    const compressedData = await compressImage(img);
+                    imgs[id] = compressedData;
+
+                    // 重新压缩编辑原图
+                    const originalCompressed = await compressImage(img, 1200, 1800, 0.85);
+                    originalImgs[id] = originalCompressed;
+
+                    // 清除裁剪参数（因为重新压缩后尺寸变了）
+                    delete imgTransforms[id];
+
+                    processed++;
+
+                    // 每5张显示一次进度
+                    if (processed % 5 === 0 || processed === total) {
+                        showToast(`已压缩 ${processed}/${total}...`);
+                    }
+                } catch (e) {
+                    console.error(`压缩图片 ${id} 失败:`, e);
+                }
+            }
+
+            // 保存数据
+            await saveData();
+            await calculateStorageStats();
+
+            // 更新UI
+            document.getElementById('recompressSection').classList.add('hidden');
+            document.getElementById('recompressDone').classList.remove('hidden');
+
+            showToast(`完成！已压缩 ${processed} 张图片`);
+        }
+
+        // 检查是否需要显示重新压缩按钮
+        function checkRecompressNeeded() {
+            // 简单判断：如果平均图片大小 > 1MB，说明是旧格式
+            const imageCount = Object.keys(imgs).length;
+            if (imageCount === 0) return false;
+
+            let totalSize = 0;
+            for (const base64 of Object.values(imgs)) {
+                totalSize += new Blob([base64]).size;
+            }
+            const avgSize = totalSize / imageCount;
+
+            // 平均大于 500KB 认为是需要压缩的旧图片
+            return avgSize > 500 * 1024;
+        }
+
         // 格式化文件大小
         function formatSize(bytes) {
             if (bytes === 0) return '0 B';
@@ -1991,6 +2083,19 @@
                 `).join('');
 
             document.getElementById('categoryStats').innerHTML = categoryHtml || '<div class="text-xs text-gray-400">暂无数据</div>';
+
+            // 检查是否需要显示重新压缩按钮
+            const recompressSection = document.getElementById('recompressSection');
+            const recompressDone = document.getElementById('recompressDone');
+            if (checkRecompressNeeded()) {
+                recompressSection.classList.remove('hidden');
+                recompressDone.classList.add('hidden');
+            } else {
+                recompressSection.classList.add('hidden');
+                if (Object.keys(imgs).length > 0) {
+                    recompressDone.classList.remove('hidden');
+                }
+            }
 
             document.getElementById('storageModal').classList.add('show');
         }
