@@ -1310,9 +1310,8 @@
             event.preventDefault();
             event.stopPropagation();
 
-            // 设置选中
-            canvasState.selectedItemId = itemId;
-            renderOutfitCanvas();
+            // 设置选中（只更新样式，不重新渲染）
+            selectOutfitItem(itemId);
 
             const touch = event.touches[0];
             startOutfitItemDrag(itemId, touch.clientX, touch.clientY);
@@ -1339,9 +1338,8 @@
             event.preventDefault();
             event.stopPropagation();
 
-            // 设置选中
-            canvasState.selectedItemId = itemId;
-            renderOutfitCanvas();
+            // 设置选中（只更新样式，不重新渲染）
+            selectOutfitItem(itemId);
 
             startOutfitItemDrag(itemId, event.clientX, event.clientY);
 
@@ -1359,6 +1357,20 @@
             endOutfitItemDrag();
             document.removeEventListener('mousemove', handleOutfitItemMouseMove);
             document.removeEventListener('mouseup', handleOutfitItemMouseUp);
+        }
+
+        // 选中单品（只更新样式，不重新渲染）
+        function selectOutfitItem(itemId) {
+            // 移除之前的选中样式
+            if (canvasState.selectedItemId && canvasState.selectedItemId !== itemId) {
+                const prevEl = document.querySelector(`[data-id="${canvasState.selectedItemId}"]`);
+                if (prevEl) prevEl.classList.remove('selected');
+            }
+
+            // 设置新的选中
+            canvasState.selectedItemId = itemId;
+            const el = document.querySelector(`[data-id="${itemId}"]`);
+            if (el) el.classList.add('selected');
         }
 
         // 开始拖拽
