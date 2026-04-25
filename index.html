@@ -1269,8 +1269,7 @@
                      data-id="${item.id}"
                      style="left: ${item.x}%; top: ${item.y}%; width: ${item.width}%; height: ${item.height}%;"
                      ontouchstart="handleOutfitItemTouchStart(event, '${item.id}')"
-                     onmousedown="handleOutfitItemMouseDown(event, '${item.id}')"
-                     onclick="selectOutfitItem('${item.id}', event)">
+                     onmousedown="handleOutfitItemMouseDown(event, '${item.id}')">
                     <img src="${imgs[item.itemId] || ''}" alt="">
                     <div class="resize-handle" ontouchstart="handleResizeStart(event, '${item.id}')" onmousedown="handleResizeStart(event, '${item.id}')"></div>
                     <div class="delete-handle" ontouchstart="handleDeleteClick(event, '${item.id}')" onclick="removeOutfitItem('${item.id}', event)">×</div>
@@ -1311,6 +1310,10 @@
             event.preventDefault();
             event.stopPropagation();
 
+            // 设置选中
+            canvasState.selectedItemId = itemId;
+            renderOutfitCanvas();
+
             const touch = event.touches[0];
             startOutfitItemDrag(itemId, touch.clientX, touch.clientY);
 
@@ -1336,6 +1339,10 @@
             event.preventDefault();
             event.stopPropagation();
 
+            // 设置选中
+            canvasState.selectedItemId = itemId;
+            renderOutfitCanvas();
+
             startOutfitItemDrag(itemId, event.clientX, event.clientY);
 
             document.addEventListener('mousemove', handleOutfitItemMouseMove);
@@ -1352,13 +1359,6 @@
             endOutfitItemDrag();
             document.removeEventListener('mousemove', handleOutfitItemMouseMove);
             document.removeEventListener('mouseup', handleOutfitItemMouseUp);
-        }
-
-        // 选中单品
-        function selectOutfitItem(itemId, event) {
-            event.stopPropagation();
-            canvasState.selectedItemId = itemId;
-            renderOutfitCanvas();
         }
 
         // 开始拖拽
