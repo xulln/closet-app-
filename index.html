@@ -109,40 +109,41 @@
             pointer-events: none;
         }
         .outfit-canvas-item.selected {
-            outline: 2px dashed #000;
-            outline-offset: 2px;
+            outline: 2px solid #000;
+            outline-offset: 4px;
+            z-index: 100;
         }
         .outfit-canvas-item .resize-handle {
             position: absolute;
-            bottom: -8px;
-            right: -8px;
-            width: 20px;
-            height: 20px;
+            bottom: -10px;
+            right: -10px;
+            width: 24px;
+            height: 24px;
             background: #000;
             border-radius: 50%;
             cursor: nwse-resize;
-            display: none;
-        }
-        .outfit-canvas-item.selected .resize-handle {
             display: block;
+            border: 2px solid white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            z-index: 10;
         }
         .outfit-canvas-item .delete-handle {
             position: absolute;
-            top: -8px;
-            right: -8px;
-            width: 20px;
-            height: 20px;
+            top: -10px;
+            right: -10px;
+            width: 24px;
+            height: 24px;
             background: #ef4444;
             border-radius: 50%;
             cursor: pointer;
-            display: none;
+            display: flex;
             align-items: center;
             justify-content: center;
             color: white;
             font-size: 12px;
-        }
-        .outfit-canvas-item.selected .delete-handle {
-            display: flex;
+            border: 2px solid white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            z-index: 10;
         }
         .selector-item {
             aspect-ratio: 3/4;
@@ -323,7 +324,7 @@
         </header>
         <main class="pt-4 pb-32">
             <!-- 搭配编辑画布 -->
-            <div id="outfitCanvas" class="relative bg-gray-50 mx-6 rounded-3xl overflow-hidden" style="aspect-ratio: 3/4;">
+            <div id="outfitCanvas" class="relative mx-6 rounded-3xl overflow-hidden border-2 border-dashed border-gray-200" style="aspect-ratio: 3/4; background: transparent;"
                 <div id="outfitItems" class="absolute inset-0">
                     <!-- 动态生成的搭配单品 -->
                 </div>
@@ -1290,26 +1291,25 @@
                 <div class="outfit-canvas-item ${canvasState.selectedItemId === item.id ? 'selected' : ''}"
                      data-id="${item.id}"
                      style="left: ${item.x}%; top: ${item.y}%; width: ${item.width}%; height: ${item.height}%;"
-                     onclick="selectOutfitItem('${item.id}', event)"
                      ontouchstart="handleOutfitItemTouchStart(event, '${item.id}')"
                      onmousedown="handleOutfitItemMouseDown(event, '${item.id}')">
                     <img src="${imgs[item.itemId] || ''}" alt="">
                     <div class="resize-handle" ontouchstart="handleResizeStart(event, '${item.id}')" onmousedown="handleResizeStart(event, '${item.id}')"></div>
-                    <div class="delete-handle" onclick="removeOutfitItem('${item.id}', event)">×</div>
+                    <div class="delete-handle" ontouchstart="handleDeleteClick(event, '${item.id}')" onclick="removeOutfitItem('${item.id}', event)">×</div>
                 </div>
             `).join('');
         }
 
-        // 选择单品（在画布上）
-        function selectOutfitItem(itemId, event) {
+        // 处理删除按钮点击（阻止冒泡）
+        function handleDeleteClick(event, itemId) {
+            event.preventDefault();
             event.stopPropagation();
-            canvasState.selectedItemId = itemId;
-            renderOutfitCanvas();
+            removeOutfitItem(itemId, event);
         }
 
         // 移除搭配中的单品
         function removeOutfitItem(itemId, event) {
-            event.stopPropagation();
+            if (event) event.stopPropagation();
             selectedOutfitItems = selectedOutfitItems.filter(i => i.id !== itemId);
             if (canvasState.selectedItemId === itemId) {
                 canvasState.selectedItemId = null;
@@ -1368,8 +1368,14 @@
             document.removeEventListener('mouseup', handleOutfitItemMouseUp);
         }
 
-        // 开始拖拽
+        // 开始拖拽（优化版：不重新渲染，直接更新样式）
         function startOutfitItemDrag(itemId, clientX, clientY) {
+            // 如果有其他选中的，先移除其选中样式
+            if (canvasState.selectedItemId && canvasState.selectedItemId !== itemId) {
+                const prevEl = document.querySelector(`[data-id="${canvasState.selectedItemId}"]`);
+                if (prevEl) prevEl.classList.remove('selected');
+            }
+
             canvasState.selectedItemId = itemId;
             canvasState.isDragging = true;
             canvasState.dragStartX = clientX;
@@ -1381,7 +1387,16 @@
                 canvasState.itemStartY = item.y;
             }
 
-            renderOutfitCanvas();
+            // 只更新当前元素的选中样式，不重新渲染
+            const el = document.querySelector(`[data-id="${itemId}"]`);
+            if (el) {
+                el.classList.add('selected');
+            }
+
+            // 触觉反馈
+            if (navigator.vibrate) {
+                navigator.vibrate(30);
+            }
         }
 
         // 更新拖拽位置
