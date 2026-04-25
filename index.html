@@ -410,9 +410,9 @@
 
             <div class="space-y-5 pb-8">
                 <div class="bg-gray-100 rounded-3xl relative overflow-hidden" style="aspect-ratio: 3/4;">
-                    <label class="absolute inset-0 flex flex-col items-center justify-center cursor-pointer active:bg-gray-200 transition-colors" id="uploadLabel" onclick="document.getElementById('fileInput').click()">
-                        <input type="file" id="fileInput" class="hidden" accept="image/jpeg,image/png,image/gif,image/webp" onchange="previewImg(this)" style="position: absolute; opacity: 0; width: 0; height: 0;">
-                        <div id="uploadBox" class="flex flex-col items-center pointer-events-none">
+                    <label class="absolute inset-0 flex flex-col items-center justify-center cursor-pointer active:bg-gray-200 transition-colors" id="uploadLabel">
+                        <input type="file" id="fileInput" class="hidden" accept="image/*" onchange="previewImg(this)">
+                        <div id="uploadBox" class="flex flex-col items-center">
                             <svg class="w-8 h-8 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                             <span class="text-xs font-bold text-gray-400">点击上传照片</span>
                         </div>
