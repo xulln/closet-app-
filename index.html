@@ -1187,8 +1187,10 @@
 
         // 删除草稿
         function deleteDraft(draftId) {
+            if (!confirm('确定删除这个草稿吗？')) return;
             outfitDrafts = outfitDrafts.filter(d => d.id !== draftId);
             saveData();
+            renderOutfits();
         }
 
         // 打开搭配编辑器（新建）
