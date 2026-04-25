@@ -98,6 +98,7 @@
             touch-action: none;
             user-select: none;
             -webkit-user-select: none;
+            background: #f9fafb;
         }
         .outfit-canvas-item:active {
             cursor: grabbing;
@@ -122,10 +123,13 @@
             background: #000;
             border-radius: 50%;
             cursor: nwse-resize;
-            display: block;
+            display: none;
             border: 2px solid white;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
             z-index: 10;
+        }
+        .outfit-canvas-item.selected .resize-handle {
+            display: block;
         }
         .outfit-canvas-item .delete-handle {
             position: absolute;
@@ -136,7 +140,7 @@
             background: #ef4444;
             border-radius: 50%;
             cursor: pointer;
-            display: flex;
+            display: none;
             align-items: center;
             justify-content: center;
             color: white;
@@ -144,6 +148,9 @@
             border: 2px solid white;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
             z-index: 10;
+        }
+        .outfit-canvas-item.selected .delete-handle {
+            display: flex;
         }
         .selector-item {
             aspect-ratio: 3/4;
@@ -1262,12 +1269,21 @@
                      data-id="${item.id}"
                      style="left: ${item.x}%; top: ${item.y}%; width: ${item.width}%; height: ${item.height}%;"
                      ontouchstart="handleOutfitItemTouchStart(event, '${item.id}')"
-                     onmousedown="handleOutfitItemMouseDown(event, '${item.id}')">
+                     onmousedown="handleOutfitItemMouseDown(event, '${item.id}')"
+                     onclick="selectOutfitItem('${item.id}', event)">
                     <img src="${imgs[item.itemId] || ''}" alt="">
                     <div class="resize-handle" ontouchstart="handleResizeStart(event, '${item.id}')" onmousedown="handleResizeStart(event, '${item.id}')"></div>
                     <div class="delete-handle" ontouchstart="handleDeleteClick(event, '${item.id}')" onclick="removeOutfitItem('${item.id}', event)">×</div>
                 </div>
             `).join('');
+
+            // 添加容器点击事件，点击空白处取消选中
+            container.onclick = function(event) {
+                if (event.target === container) {
+                    canvasState.selectedItemId = null;
+                    renderOutfitCanvas();
+                }
+            };
         }
 
         // 处理删除按钮点击（阻止冒泡）
@@ -1338,15 +1354,15 @@
             document.removeEventListener('mouseup', handleOutfitItemMouseUp);
         }
 
-        // 开始拖拽（优化版：不重新渲染，直接更新样式）
-        function startOutfitItemDrag(itemId, clientX, clientY) {
-            // 如果有其他选中的，先移除其选中样式
-            if (canvasState.selectedItemId && canvasState.selectedItemId !== itemId) {
-                const prevEl = document.querySelector(`[data-id="${canvasState.selectedItemId}"]`);
-                if (prevEl) prevEl.classList.remove('selected');
-            }
-
+        // 选中单品
+        function selectOutfitItem(itemId, event) {
+            event.stopPropagation();
             canvasState.selectedItemId = itemId;
+            renderOutfitCanvas();
+        }
+
+        // 开始拖拽
+        function startOutfitItemDrag(itemId, clientX, clientY) {
             canvasState.isDragging = true;
             canvasState.dragStartX = clientX;
             canvasState.dragStartY = clientY;
@@ -1355,17 +1371,6 @@
             if (item) {
                 canvasState.itemStartX = item.x;
                 canvasState.itemStartY = item.y;
-            }
-
-            // 只更新当前元素的选中样式，不重新渲染
-            const el = document.querySelector(`[data-id="${itemId}"]`);
-            if (el) {
-                el.classList.add('selected');
-            }
-
-            // 触觉反馈
-            if (navigator.vibrate) {
-                navigator.vibrate(30);
             }
         }
 
