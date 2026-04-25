@@ -60,6 +60,125 @@
             height: 100%;
             object-fit: cover;
         }
+
+        /* 搭配区样式 */
+        .outfit-card {
+            background: #f9fafb;
+            border-radius: 2rem;
+            aspect-ratio: 3/4;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid #f3f4f6;
+        }
+        .outfit-card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        .outfit-card-item {
+            position: absolute;
+            cursor: move;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .outfit-card-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            pointer-events: none;
+        }
+        .outfit-card-item.selected {
+            outline: 2px dashed #000;
+            outline-offset: 2px;
+        }
+        .outfit-canvas-item {
+            position: absolute;
+            cursor: grab;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .outfit-canvas-item:active {
+            cursor: grabbing;
+        }
+        .outfit-canvas-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            pointer-events: none;
+        }
+        .outfit-canvas-item.selected {
+            outline: 2px dashed #000;
+            outline-offset: 2px;
+        }
+        .outfit-canvas-item .resize-handle {
+            position: absolute;
+            bottom: -8px;
+            right: -8px;
+            width: 20px;
+            height: 20px;
+            background: #000;
+            border-radius: 50%;
+            cursor: nwse-resize;
+            display: none;
+        }
+        .outfit-canvas-item.selected .resize-handle {
+            display: block;
+        }
+        .outfit-canvas-item .delete-handle {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 20px;
+            height: 20px;
+            background: #ef4444;
+            border-radius: 50%;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+        }
+        .outfit-canvas-item.selected .delete-handle {
+            display: flex;
+        }
+        .selector-item {
+            aspect-ratio: 3/4;
+            border-radius: 1rem;
+            overflow: hidden;
+            background: #f3f4f6;
+            cursor: pointer;
+            position: relative;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .selector-item.selected {
+            border-color: #000;
+        }
+        .selector-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .selector-item .check-mark {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 20px;
+            height: 20px;
+            background: #000;
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+        }
+        .selector-item.selected .check-mark {
+            display: flex;
+        }
     </style>
 </head>
 <body class="bg-white min-h-screen">
@@ -91,6 +210,7 @@
             <div class="flex space-x-8 mb-2">
                 <button onclick="setTab('ootd')" id="tab-ootd" class="tab active">全身穿搭<div class="tab-dot"></div></button>
                 <button onclick="setTab('closet')" id="tab-closet" class="tab">单品分类<div class="tab-dot"></div></button>
+                <button onclick="setTab('outfit')" id="tab-outfit" class="tab">搭配区<div class="tab-dot"></div></button>
             </div>
         </header>
 
@@ -178,7 +298,69 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 搭配区 -->
+            <div id="section-outfit" class="hidden">
+                <div id="outfitGrid" class="grid grid-cols-2 gap-4"></div>
+                <div id="outfitEmpty" class="empty-state hidden">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                    <p class="font-bold">暂无搭配</p>
+                    <p class="text-sm mt-1">点击底部 + 创建你的第一个搭配</p>
+                </div>
+            </div>
         </main>
+    </div>
+
+    <!-- 搭配编辑页 -->
+    <div id="page-outfit-editor" class="hidden min-h-screen bg-white">
+        <div class="safe-top bg-white sticky top-0 z-50"></div>
+        <header class="px-6 flex items-center justify-between h-16 sticky top-[env(safe-area-inset-top)] bg-white z-50">
+            <button onclick="closeOutfitEditor()" class="w-10 h-10 flex items-center justify-start">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <h2 class="text-base font-bold">编辑搭配</h2>
+            <button onclick="saveOutfit()" class="px-4 py-2 bg-black text-white rounded-full text-sm font-bold">保存</button>
+        </header>
+        <main class="pt-4 pb-32">
+            <!-- 搭配编辑画布 -->
+            <div id="outfitCanvas" class="relative bg-gray-50 mx-6 rounded-3xl overflow-hidden" style="aspect-ratio: 3/4;">
+                <div id="outfitItems" class="absolute inset-0">
+                    <!-- 动态生成的搭配单品 -->
+                </div>
+                <button onclick="openItemSelector()" id="addOutfitItemBtn" class="absolute bottom-4 right-4 w-12 h-12 bg-black text-white rounded-full shadow-lg flex items-center justify-center z-10 active:scale-90 transition-transform" style="touch-action: manipulation;">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                </button>
+                <div id="outfitEmptyTip" class="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+                    <svg class="w-16 h-16 mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                    <p class="text-sm font-bold">点击右下角 + 添加单品</p>
+                </div>
+            </div>
+            <!-- 编辑提示 -->
+            <div class="px-6 mt-4">
+                <p class="text-xs text-gray-400 text-center">拖动调整位置，双指/滚轮缩放大小</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- 选择单品弹窗 -->
+    <div id="itemSelectorModal" class="modal" onclick="closeModal('itemSelectorModal')">
+        <div class="modal-box !p-6" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-extrabold">选择单品</h3>
+                <button onclick="closeModal('itemSelectorModal')" class="text-gray-400 font-bold text-sm">关闭</button>
+            </div>
+            <!-- 分类标签 -->
+            <div class="flex gap-2 mb-4 overflow-x-auto pb-2">
+                <button onclick="filterSelectorItems('all')" id="selectorTab-all" class="px-4 py-2 bg-black text-white rounded-full text-xs font-bold whitespace-nowrap">全部</button>
+                <button onclick="filterSelectorItems('clothes')" id="selectorTab-clothes" class="px-4 py-2 bg-gray-100 text-gray-600 rounded-full text-xs font-bold whitespace-nowrap">服装</button>
+                <button onclick="filterSelectorItems('acc')" id="selectorTab-acc" class="px-4 py-2 bg-gray-100 text-gray-600 rounded-full text-xs font-bold whitespace-nowrap">配饰</button>
+            </div>
+            <!-- 单品网格 -->
+            <div id="selectorGrid" class="grid grid-cols-3 gap-3 max-h-96 overflow-y-auto">
+                <!-- 动态生成 -->
+            </div>
+            <button onclick="confirmAddItems()" class="w-full mt-6 bg-black text-white py-4 rounded-2xl font-bold">添加选中单品</button>
+        </div>
     </div>
 
     <!-- 详情页 -->
@@ -228,9 +410,9 @@
 
             <div class="space-y-5 pb-8">
                 <div class="bg-gray-100 rounded-3xl relative overflow-hidden" style="aspect-ratio: 3/4;">
-                    <label class="absolute inset-0 flex flex-col items-center justify-center cursor-pointer active:bg-gray-200 transition-colors" id="uploadLabel">
-                        <input type="file" id="fileInput" class="hidden" accept="image/*" onchange="previewImg(this)">
-                        <div id="uploadBox" class="flex flex-col items-center">
+                    <label class="absolute inset-0 flex flex-col items-center justify-center cursor-pointer active:bg-gray-200 transition-colors" id="uploadLabel" onclick="document.getElementById('fileInput').click()">
+                        <input type="file" id="fileInput" class="hidden" accept="image/jpeg,image/png,image/gif,image/webp" onchange="previewImg(this)" style="position: absolute; opacity: 0; width: 0; height: 0;">
+                        <div id="uploadBox" class="flex flex-col items-center pointer-events-none">
                             <svg class="w-8 h-8 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                             <span class="text-xs font-bold text-gray-400">点击上传照片</span>
                         </div>
@@ -311,6 +493,14 @@
                             <span id="itemCount" class="text-sm font-bold">0 件</span>
                         </div>
                         <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-500">搭配数量</span>
+                            <span id="outfitCount" class="text-sm font-bold">0 套</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-500">草稿数量</span>
+                            <span id="draftCount" class="text-sm font-bold">0 个</span>
+                        </div>
+                        <div class="flex items-center justify-between">
                             <span class="text-xs text-gray-500">图片数量</span>
                             <span id="imageCount" class="text-sm font-bold">0 张</span>
                         </div>
@@ -367,7 +557,7 @@
     <script>
         // 数据存储 - IndexedDB
         const DB_NAME = 'ClosetDB';
-        const DB_VERSION = 1;
+        const DB_VERSION = 2;
         let db = null;
 
         // 兼容：localStorage keys（用于数据迁移）
@@ -378,7 +568,7 @@
         const LEGACY_ORDER_KEY = 'closet_ootd_order_v1';
 
         // 内存中的数据缓存
-        let items = [], imgs = {}, originalImgs = {}, imgTransforms = {}, ootdOrder = {};
+        let items = [], imgs = {}, originalImgs = {}, imgTransforms = {}, ootdOrder = {}, outfits = [], outfitDrafts = [];
 
         const config = {
             clothes: { types: ['全身','上衣','裤子','半身裙','外套','连衣裙','套装','鞋子'], icon: '👔' },
@@ -453,6 +643,16 @@
                     if (!database.objectStoreNames.contains('order')) {
                         database.createObjectStore('order', { keyPath: 'id' });
                     }
+
+                    // 存储搭配信息
+                    if (!database.objectStoreNames.contains('outfits')) {
+                        database.createObjectStore('outfits', { keyPath: 'id' });
+                    }
+
+                    // 存储草稿搭配
+                    if (!database.objectStoreNames.contains('outfitDrafts')) {
+                        database.createObjectStore('outfitDrafts', { keyPath: 'id' });
+                    }
                 };
             });
         }
@@ -468,6 +668,8 @@
                 originalImgs = await getAllImagesFromStore('originalImages') || {};
                 imgTransforms = await getAllFromStore('transforms') || {};
                 ootdOrder = await getAllFromStore('order') || {};
+                outfits = await getAllItemsFromStore('outfits') || [];
+                outfitDrafts = await getAllItemsFromStore('outfitDrafts') || [];
 
                 // 如果没有数据，尝试从 localStorage 迁移
                 if (items.length === 0) {
@@ -611,9 +813,15 @@
 
         // 压缩图片
         function compressImage(img, maxWidth = 600, maxHeight = 900, quality = 0.70) {
-            return new Promise((resolve) => {
+            return new Promise((resolve, reject) => {
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
+
+                // 确保图片已加载
+                if (!img.naturalWidth || !img.naturalHeight) {
+                    reject(new Error('图片尺寸无效'));
+                    return;
+                }
 
                 let width = img.naturalWidth;
                 let height = img.naturalHeight;
@@ -629,6 +837,10 @@
                 // 使用更好的压缩算法
                 ctx.imageSmoothingEnabled = true;
                 ctx.imageSmoothingQuality = 'high';
+
+                // 填充白色背景（处理透明 PNG）
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, width, height);
 
                 // 绘制图片
                 ctx.drawImage(img, 0, 0, width, height);
@@ -711,6 +923,16 @@
                     await saveToStore('order', id, order);
                 }
 
+                // 保存搭配
+                for (const outfit of outfits) {
+                    await saveToStore('outfits', outfit.id, outfit);
+                }
+
+                // 保存草稿
+                for (const draft of outfitDrafts) {
+                    await saveToStore('outfitDrafts', draft.id, draft);
+                }
+
                 // 更新存储统计
                 await calculateStorageStats();
             } catch (e) {
@@ -719,7 +941,7 @@
         }
 
         function exportData() {
-            const data = { items, imgs, exportTime: new Date().toISOString() };
+            const data = { items, imgs, outfits, outfitDrafts, exportTime: new Date().toISOString() };
             const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -749,6 +971,8 @@
                 originalImgs = {};
                 imgTransforms = {};
                 ootdOrder = {};
+                outfits = [];
+                outfitDrafts = [];
 
                 // 导入数据
                 items = data.items;
@@ -756,6 +980,8 @@
                 if (data.originalImgs) originalImgs = data.originalImgs;
                 if (data.imgTransforms) imgTransforms = data.imgTransforms;
                 if (data.ootdOrder) ootdOrder = data.ootdOrder;
+                if (data.outfits) outfits = data.outfits;
+                if (data.outfitDrafts) outfitDrafts = data.outfitDrafts;
 
                 // 保存到 IndexedDB
                 await saveData();
@@ -776,7 +1002,9 @@
             document.getElementById(`tab-${tab}`).classList.add('active');
             document.getElementById('section-ootd').classList.toggle('hidden', tab !== 'ootd');
             document.getElementById('section-closet').classList.toggle('hidden', tab !== 'closet');
+            document.getElementById('section-outfit').classList.toggle('hidden', tab !== 'outfit');
             if(tab === 'closet') renderCloset();
+            if(tab === 'outfit') renderOutfits();
         }
 
         function goHome() {
@@ -846,6 +1074,540 @@
 
             // 重新初始化拖拽事件（DOM 已更新）
             initTouchDrag();
+        }
+
+        // ========== 搭配区功能 ==========
+
+        // 当前编辑的搭配
+        let currentOutfit = null;
+        let selectedOutfitItems = [];
+        let selectorFilter = 'all';
+        let tempSelectedItems = new Set();
+
+        // 搭配画布状态
+        let canvasState = {
+            selectedItemId: null,
+            isDragging: false,
+            isResizing: false,
+            dragStartX: 0,
+            dragStartY: 0,
+            itemStartX: 0,
+            itemStartY: 0,
+            itemStartWidth: 0,
+            itemStartHeight: 0
+        };
+
+        // 渲染搭配区
+        function renderOutfits() {
+            const grid = document.getElementById('outfitGrid');
+            const empty = document.getElementById('outfitEmpty');
+
+            const totalCount = outfits.length + outfitDrafts.length;
+
+            if (totalCount === 0) {
+                grid.innerHTML = '';
+                empty.classList.remove('hidden');
+                return;
+            }
+
+            empty.classList.add('hidden');
+
+            // 渲染正式搭配
+            let html = outfits.map((outfit, index) => renderOutfitCard(outfit, index, false)).join('');
+
+            // 渲染草稿
+            html += outfitDrafts.map((draft, index) => renderOutfitCard(draft, index, true)).join('');
+
+            grid.innerHTML = html;
+        }
+
+        // 渲染搭配卡片（缩略图）
+        function renderOutfitCard(outfit, index, isDraft) {
+            const draftClass = isDraft ? 'opacity-60 grayscale-[30%]' : '';
+            const draftLabel = isDraft ? '<span class="absolute top-2 left-2 px-2 py-1 bg-gray-500 text-white text-[10px] font-bold rounded-full">草稿</span>' : '';
+            const clickHandler = isDraft ? `editOutfit('${outfit.id}', true)` : `editOutfit('${outfit.id}')`;
+            const deleteHandler = isDraft ? `deleteDraft('${outfit.id}')` : `deleteOutfit('${outfit.id}')`;
+
+            return `
+                <div class="outfit-card ${draftClass}" onclick="${clickHandler}">
+                    ${draftLabel}
+                    <div class="outfit-card-inner">
+                        ${outfit.items.map(item => `
+                            <div class="outfit-card-item" style="
+                                left: ${item.x}%; top: ${item.y}%;
+                                width: ${item.width}%; height: ${item.height}%;
+                            ">
+                                <img src="${imgs[item.itemId] || ''}" alt="">
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 pt-8">
+                        <p class="text-white text-sm font-bold">${outfit.name}</p>
+                        <p class="text-white/60 text-xs">${outfit.items.length} 件单品${isDraft ? ' · 草稿' : ''}</p>
+                    </div>
+                    <button onclick="event.stopPropagation();${deleteHandler}" class="del-btn">×</button>
+                </div>
+            `;
+        }
+
+        // 启动自动保存草稿
+        function startDraftAutoSave() {
+            // 每 10 秒自动保存一次
+            draftAutoSaveTimer = setInterval(() => {
+                if (selectedOutfitItems.length > 0) {
+                    saveDraft(false);
+                    console.log('草稿已自动保存');
+                }
+            }, 10000);
+        }
+
+        // 停止自动保存
+        function stopDraftAutoSave() {
+            if (draftAutoSaveTimer) {
+                clearInterval(draftAutoSaveTimer);
+                draftAutoSaveTimer = null;
+            }
+        }
+
+        // 保存草稿
+        function saveDraft(showToastMsg = true) {
+            if (selectedOutfitItems.length === 0) return;
+
+            const draftId = currentOutfit?.id || 'draft_' + Date.now();
+
+            // 查找是否已有草稿
+            const existingIndex = outfitDrafts.findIndex(d => d.id === draftId);
+
+            const draft = {
+                id: draftId,
+                name: currentOutfit?.name || '搭配' + (outfits.length + outfitDrafts.length + 1),
+                items: JSON.parse(JSON.stringify(selectedOutfitItems)),
+                created: currentOutfit?.created || Date.now(),
+                updated: Date.now()
+            };
+
+            if (existingIndex >= 0) {
+                outfitDrafts[existingIndex] = draft;
+            } else {
+                outfitDrafts.push(draft);
+            }
+
+            saveData();
+
+            if (showToastMsg) {
+                showToast('已自动保存草稿');
+            }
+        }
+
+        // 删除草稿
+        function deleteDraft(draftId) {
+            outfitDrafts = outfitDrafts.filter(d => d.id !== draftId);
+            saveData();
+        }
+
+        // 打开搭配编辑器（新建）
+        function openOutfitEditor() {
+            currentOutfit = null;
+            selectedOutfitItems = [];
+            tempSelectedItems.clear();
+
+            // 重置画布
+            document.getElementById('outfitItems').innerHTML = '';
+            document.getElementById('outfitEmptyTip').classList.remove('hidden');
+            document.getElementById('addOutfitItemBtn').classList.remove('hidden');
+
+            // 隐藏底部新建搭配按钮
+            document.getElementById('addBtnContainer').classList.add('hidden');
+
+            // 显示编辑页面
+            document.getElementById('page-home').classList.add('hidden');
+            document.getElementById('page-outfit-editor').classList.remove('hidden');
+
+            // 启动自动保存草稿
+            startDraftAutoSave();
+        }
+
+        // 关闭搭配编辑器
+        function closeOutfitEditor(isSave = false) {
+            // 停止自动保存
+            stopDraftAutoSave();
+
+            // 如果不是保存操作，且有单品，自动保存为草稿
+            if (!isSave && selectedOutfitItems.length > 0) {
+                saveDraft();
+                showToast('已自动保存草稿');
+            }
+
+            // 显示底部新建搭配按钮
+            document.getElementById('addBtnContainer').classList.remove('hidden');
+
+            document.getElementById('page-outfit-editor').classList.add('hidden');
+            document.getElementById('page-home').classList.remove('hidden');
+            setTab('outfit');
+        }
+
+        // 编辑搭配
+        function editOutfit(outfitId, isDraft = false) {
+            let outfit;
+            if (isDraft) {
+                outfit = outfitDrafts.find(o => o.id === outfitId);
+            } else {
+                outfit = outfits.find(o => o.id === outfitId);
+            }
+            if (!outfit) return;
+
+            currentOutfit = outfit;
+            selectedOutfitItems = JSON.parse(JSON.stringify(outfit.items));
+            tempSelectedItems.clear();
+
+            // 隐藏底部新建搭配按钮
+            document.getElementById('addBtnContainer').classList.add('hidden');
+
+            // 渲染画布
+            renderOutfitCanvas();
+
+            // 显示编辑页面
+            document.getElementById('page-home').classList.add('hidden');
+            document.getElementById('page-outfit-editor').classList.remove('hidden');
+
+            // 启动自动保存草稿
+            startDraftAutoSave();
+        }
+
+        // 渲染搭配画布
+        function renderOutfitCanvas() {
+            const container = document.getElementById('outfitItems');
+            const emptyTip = document.getElementById('outfitEmptyTip');
+
+            if (selectedOutfitItems.length === 0) {
+                container.innerHTML = '';
+                emptyTip.classList.remove('hidden');
+                return;
+            }
+
+            emptyTip.classList.add('hidden');
+            container.innerHTML = selectedOutfitItems.map(item => `
+                <div class="outfit-canvas-item ${canvasState.selectedItemId === item.id ? 'selected' : ''}"
+                     data-id="${item.id}"
+                     style="left: ${item.x}%; top: ${item.y}%; width: ${item.width}%; height: ${item.height}%;"
+                     onclick="selectOutfitItem('${item.id}', event)"
+                     ontouchstart="handleOutfitItemTouchStart(event, '${item.id}')"
+                     onmousedown="handleOutfitItemMouseDown(event, '${item.id}')">
+                    <img src="${imgs[item.itemId] || ''}" alt="">
+                    <div class="resize-handle" ontouchstart="handleResizeStart(event, '${item.id}')" onmousedown="handleResizeStart(event, '${item.id}')"></div>
+                    <div class="delete-handle" onclick="removeOutfitItem('${item.id}', event)">×</div>
+                </div>
+            `).join('');
+        }
+
+        // 选择单品（在画布上）
+        function selectOutfitItem(itemId, event) {
+            event.stopPropagation();
+            canvasState.selectedItemId = itemId;
+            renderOutfitCanvas();
+        }
+
+        // 移除搭配中的单品
+        function removeOutfitItem(itemId, event) {
+            event.stopPropagation();
+            selectedOutfitItems = selectedOutfitItems.filter(i => i.id !== itemId);
+            if (canvasState.selectedItemId === itemId) {
+                canvasState.selectedItemId = null;
+            }
+            renderOutfitCanvas();
+            if (selectedOutfitItems.length === 0) {
+                document.getElementById('outfitEmptyTip').classList.remove('hidden');
+            }
+        }
+
+        // 处理单品触摸拖拽
+        function handleOutfitItemTouchStart(event, itemId) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const touch = event.touches[0];
+            startOutfitItemDrag(itemId, touch.clientX, touch.clientY);
+
+            document.addEventListener('touchmove', handleOutfitItemTouchMove, { passive: false });
+            document.addEventListener('touchend', handleOutfitItemTouchEnd, { passive: false });
+        }
+
+        function handleOutfitItemTouchMove(event) {
+            event.preventDefault();
+            const touch = event.touches[0];
+            updateOutfitItemDrag(touch.clientX, touch.clientY);
+        }
+
+        function handleOutfitItemTouchEnd(event) {
+            event.preventDefault();
+            endOutfitItemDrag();
+            document.removeEventListener('touchmove', handleOutfitItemTouchMove);
+            document.removeEventListener('touchend', handleOutfitItemTouchEnd);
+        }
+
+        // 处理单品鼠标拖拽
+        function handleOutfitItemMouseDown(event, itemId) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            startOutfitItemDrag(itemId, event.clientX, event.clientY);
+
+            document.addEventListener('mousemove', handleOutfitItemMouseMove);
+            document.addEventListener('mouseup', handleOutfitItemMouseUp);
+        }
+
+        function handleOutfitItemMouseMove(event) {
+            event.preventDefault();
+            updateOutfitItemDrag(event.clientX, event.clientY);
+        }
+
+        function handleOutfitItemMouseUp(event) {
+            event.preventDefault();
+            endOutfitItemDrag();
+            document.removeEventListener('mousemove', handleOutfitItemMouseMove);
+            document.removeEventListener('mouseup', handleOutfitItemMouseUp);
+        }
+
+        // 开始拖拽
+        function startOutfitItemDrag(itemId, clientX, clientY) {
+            canvasState.selectedItemId = itemId;
+            canvasState.isDragging = true;
+            canvasState.dragStartX = clientX;
+            canvasState.dragStartY = clientY;
+
+            const item = selectedOutfitItems.find(i => i.id === itemId);
+            if (item) {
+                canvasState.itemStartX = item.x;
+                canvasState.itemStartY = item.y;
+            }
+
+            renderOutfitCanvas();
+        }
+
+        // 更新拖拽位置
+        function updateOutfitItemDrag(clientX, clientY) {
+            if (!canvasState.isDragging || !canvasState.selectedItemId) return;
+
+            const container = document.getElementById('outfitCanvas');
+            const rect = container.getBoundingClientRect();
+
+            const deltaX = ((clientX - canvasState.dragStartX) / rect.width) * 100;
+            const deltaY = ((clientY - canvasState.dragStartY) / rect.height) * 100;
+
+            const item = selectedOutfitItems.find(i => i.id === canvasState.selectedItemId);
+            if (item) {
+                item.x = Math.max(0, Math.min(100 - item.width, canvasState.itemStartX + deltaX));
+                item.y = Math.max(0, Math.min(100 - item.height, canvasState.itemStartY + deltaY));
+
+                // 实时更新 DOM
+                const el = document.querySelector(`[data-id="${item.id}"]`);
+                if (el) {
+                    el.style.left = item.x + '%';
+                    el.style.top = item.y + '%';
+                }
+            }
+        }
+
+        // 结束拖拽
+        function endOutfitItemDrag() {
+            canvasState.isDragging = false;
+        }
+
+        // 处理缩放
+        function handleResizeStart(event, itemId) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            canvasState.selectedItemId = itemId;
+            canvasState.isResizing = true;
+
+            const item = selectedOutfitItems.find(i => i.id === itemId);
+            if (item) {
+                canvasState.itemStartWidth = item.width;
+                canvasState.itemStartHeight = item.height;
+            }
+
+            if (event.type === 'touchstart') {
+                canvasState.dragStartX = event.touches[0].clientX;
+                canvasState.dragStartY = event.touches[0].clientY;
+                document.addEventListener('touchmove', handleResizeMove, { passive: false });
+                document.addEventListener('touchend', handleResizeEnd, { passive: false });
+            } else {
+                canvasState.dragStartX = event.clientX;
+                canvasState.dragStartY = event.clientY;
+                document.addEventListener('mousemove', handleResizeMove);
+                document.addEventListener('mouseup', handleResizeEnd);
+            }
+        }
+
+        function handleResizeMove(event) {
+            event.preventDefault();
+            if (!canvasState.isResizing || !canvasState.selectedItemId) return;
+
+            const clientX = event.type === 'touchmove' ? event.touches[0].clientX : event.clientX;
+            const clientY = event.type === 'touchmove' ? event.touches[0].clientY : event.clientY;
+
+            const container = document.getElementById('outfitCanvas');
+            const rect = container.getBoundingClientRect();
+
+            const deltaX = ((clientX - canvasState.dragStartX) / rect.width) * 100;
+            const deltaY = ((clientY - canvasState.dragStartY) / rect.height) * 100;
+            const delta = Math.max(deltaX, deltaY);
+
+            const item = selectedOutfitItems.find(i => i.id === canvasState.selectedItemId);
+            if (item) {
+                const aspectRatio = canvasState.itemStartWidth / canvasState.itemStartHeight;
+                let newWidth = Math.max(10, Math.min(90, canvasState.itemStartWidth + delta));
+                let newHeight = newWidth / aspectRatio;
+
+                // 确保不超出边界
+                if (item.x + newWidth > 100) newWidth = 100 - item.x;
+                if (item.y + newHeight > 100) newHeight = 100 - item.y;
+
+                item.width = newWidth;
+                item.height = newHeight;
+
+                // 实时更新 DOM
+                const el = document.querySelector(`[data-id="${item.id}"]`);
+                if (el) {
+                    el.style.width = item.width + '%';
+                    el.style.height = item.height + '%';
+                }
+            }
+        }
+
+        function handleResizeEnd(event) {
+            event.preventDefault();
+            canvasState.isResizing = false;
+            document.removeEventListener('mousemove', handleResizeMove);
+            document.removeEventListener('mouseup', handleResizeEnd);
+            document.removeEventListener('touchmove', handleResizeMove);
+            document.removeEventListener('touchend', handleResizeEnd);
+        }
+
+        // 打开单品选择器
+        function openItemSelector() {
+            selectorFilter = 'all';
+            tempSelectedItems.clear();
+
+            // 标记已添加的单品
+            selectedOutfitItems.forEach(item => {
+                tempSelectedItems.add(item.itemId);
+            });
+
+            renderSelectorItems();
+            document.getElementById('itemSelectorModal').classList.add('show');
+        }
+
+        // 筛选选择器中的单品
+        function filterSelectorItems(filter) {
+            selectorFilter = filter;
+
+            // 更新标签样式
+            document.getElementById('selectorTab-all').className = filter === 'all' ? 'px-4 py-2 bg-black text-white rounded-full text-xs font-bold whitespace-nowrap' : 'px-4 py-2 bg-gray-100 text-gray-600 rounded-full text-xs font-bold whitespace-nowrap';
+            document.getElementById('selectorTab-clothes').className = filter === 'clothes' ? 'px-4 py-2 bg-black text-white rounded-full text-xs font-bold whitespace-nowrap' : 'px-4 py-2 bg-gray-100 text-gray-600 rounded-full text-xs font-bold whitespace-nowrap';
+            document.getElementById('selectorTab-acc').className = filter === 'acc' ? 'px-4 py-2 bg-black text-white rounded-full text-xs font-bold whitespace-nowrap' : 'px-4 py-2 bg-gray-100 text-gray-600 rounded-full text-xs font-bold whitespace-nowrap';
+
+            renderSelectorItems();
+        }
+
+        // 渲染选择器中的单品
+        function renderSelectorItems() {
+            const grid = document.getElementById('selectorGrid');
+
+            let filtered = items;
+            if (selectorFilter === 'clothes') {
+                filtered = items.filter(i => config.clothes.types.includes(i.type));
+            } else if (selectorFilter === 'acc') {
+                filtered = items.filter(i => config.acc.types.includes(i.type));
+            }
+
+            if (filtered.length === 0) {
+                grid.innerHTML = '<div class="col-span-3 text-center text-gray-400 py-8 text-sm">暂无单品</div>';
+                return;
+            }
+
+            grid.innerHTML = filtered.map(item => {
+                const isSelected = tempSelectedItems.has(item.id);
+                return `
+                    <div class="selector-item ${isSelected ? 'selected' : ''}" onclick="toggleSelectorItem('${item.id}')">
+                        <img src="${imgs[item.id] || ''}" alt="">
+                        <div class="check-mark">✓</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 切换单品选中状态
+        function toggleSelectorItem(itemId) {
+            if (tempSelectedItems.has(itemId)) {
+                tempSelectedItems.delete(itemId);
+            } else {
+                tempSelectedItems.add(itemId);
+            }
+            renderSelectorItems();
+        }
+
+        // 确认添加选中的单品
+        function confirmAddItems() {
+            // 为每个新选中的单品创建画布项
+            tempSelectedItems.forEach(itemId => {
+                // 检查是否已在画布中
+                const exists = selectedOutfitItems.some(i => i.itemId === itemId);
+                if (!exists) {
+                    selectedOutfitItems.push({
+                        id: 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                        itemId: itemId,
+                        x: 10 + Math.random() * 30,
+                        y: 10 + Math.random() * 30,
+                        width: 40,
+                        height: 53 // 3:4 比例
+                    });
+                }
+            });
+
+            closeModal('itemSelectorModal');
+            renderOutfitCanvas();
+        }
+
+        // 保存搭配
+        function saveOutfit() {
+            if (selectedOutfitItems.length === 0) {
+                alert('请至少添加一件单品');
+                return;
+            }
+
+            if (currentOutfit) {
+                // 更新现有搭配
+                currentOutfit.items = selectedOutfitItems;
+                currentOutfit.updated = Date.now();
+            } else {
+                // 创建新搭配
+                const newOutfit = {
+                    id: 'outfit_' + Date.now(),
+                    name: '搭配' + (outfits.length + 1),
+                    items: selectedOutfitItems,
+                    created: Date.now(),
+                    updated: Date.now()
+                };
+                outfits.push(newOutfit);
+            }
+
+            // 如果是从草稿保存的，删除草稿
+            if (currentOutfit && currentOutfit.id.startsWith('draft_')) {
+                deleteDraft(currentOutfit.id);
+            }
+
+            saveData();
+            closeOutfitEditor(true); // true 表示是保存操作，不提示草稿
+        }
+
+        // 删除搭配
+        function deleteOutfit(outfitId) {
+            if (!confirm('确定删除这个搭配吗？')) return;
+            outfits = outfits.filter(o => o.id !== outfitId);
+            saveData();
+            renderOutfits();
         }
 
         // 触摸拖拽状态
@@ -1391,7 +2153,14 @@
         }
 
         // 弹窗
-        function openChoice() { document.getElementById('choiceModal').classList.add('show'); }
+        function openChoice() {
+            const isOutfitTab = document.getElementById('tab-outfit').classList.contains('active');
+            if (isOutfitTab) {
+                openOutfitEditor();
+            } else {
+                document.getElementById('choiceModal').classList.add('show');
+            }
+        }
         function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
         let currentAddMode = '';
@@ -1733,7 +2502,7 @@
         }
 
         // 图片处理
-        function previewImg(input) {
+        async function previewImg(input) {
             console.log('previewImg called', input.files);
             if(!input.files || !input.files[0]) {
                 console.log('no file selected');
@@ -1747,55 +2516,81 @@
                 return;
             }
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
+            try {
+                const base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = () => reject(new Error('读取文件失败'));
+                    reader.readAsDataURL(file);
+                });
                 console.log('FileReader loaded');
+
+                // 创建图片并等待加载
                 const img = new Image();
-                img.onload = async function() {
-                    console.log('Image loaded, original size:', img.width, 'x', img.height);
-                    const previewWrapper = document.getElementById('previewWrapper');
-                    const preview = document.getElementById('previewImg');
-                    const uploadLabel = document.getElementById('uploadLabel');
+                img.src = base64;
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = () => reject(new Error('图片加载失败'));
+                });
 
-                    // 压缩图片（展示图：600x900，质量 70%）
-                    const compressedData = await compressImage(img);
-                    const originalInfo = getImageInfo(e.target.result);
-                    const compressedInfo = getImageInfo(compressedData);
-                    console.log(`Image compressed: ${originalInfo.sizeInMB}MB -> ${compressedInfo.sizeInMB}MB`);
+                console.log('Image loaded, size:', img.naturalWidth, 'x', img.naturalHeight);
 
-                    // 显示预览，隐藏上传按钮
-                    preview.src = compressedData;
-                    // 压缩原图用于编辑（1200x1800，质量 85%）
-                    const originalCompressed = await compressImage(img, 1200, 1800, 0.85);
-                    preview.dataset.original = originalCompressed;
-                    preview.classList.remove('hidden');
-                    previewWrapper.classList.remove('hidden');
-                    uploadLabel.classList.add('hidden');
+                if (!img.naturalWidth || !img.naturalHeight) {
+                    alert('无法读取图片尺寸，请尝试其他图片');
+                    return;
+                }
 
-                    // 显示编辑按钮
-                    const editBtn = document.getElementById('editImageBtn');
-                    if (editBtn) editBtn.classList.remove('hidden');
+                const previewWrapper = document.getElementById('previewWrapper');
+                const preview = document.getElementById('previewImg');
+                const uploadLabel = document.getElementById('uploadLabel');
 
-                    // 重置并启用手势缩放
-                    resetImageTransform();
-                    setupImageGestures();
+                // 压缩图片（展示图：600x900，质量 70%）
+                const compressedData = await compressImage(img);
+                const originalInfo = getImageInfo(base64);
+                const compressedInfo = getImageInfo(compressedData);
+                console.log(`Image compressed: ${originalInfo.sizeInMB}MB -> ${compressedInfo.sizeInMB}MB`);
 
-                    // 显示压缩提示
-                    if (parseFloat(originalInfo.sizeInMB) > 0.5) {
-                        showToast(`图片已压缩: ${originalInfo.sizeInMB}MB → ${compressedInfo.sizeInMB}MB`);
-                    }
+                // 压缩原图用于编辑（1200x1800，质量 85%）
+                const originalCompressed = await compressImage(img, 1200, 1800, 0.85);
 
-                    console.log('preview updated with compressed image');
-                };
-                img.onerror = function() {
-                    alert('图片加载失败，请重试');
-                };
-                img.src = e.target.result;
-            };
-            reader.onerror = function() {
-                alert('读取文件失败，请重试');
-            };
-            reader.readAsDataURL(file);
+                // 设置图片源
+                preview.src = compressedData;
+                preview.dataset.original = originalCompressed;
+
+                // 等待图片加载完成
+                await new Promise((resolve) => {
+                    if (preview.complete) resolve();
+                    else preview.onload = resolve;
+                });
+
+                // 显示预览，隐藏上传按钮
+                preview.classList.remove('hidden');
+                previewWrapper.classList.remove('hidden');
+                uploadLabel.classList.add('hidden');
+
+                // 强制重绘
+                previewWrapper.style.display = 'none';
+                previewWrapper.offsetHeight; // 触发重排
+                previewWrapper.style.display = '';
+
+                // 显示编辑按钮
+                const editBtn = document.getElementById('editImageBtn');
+                if (editBtn) editBtn.classList.remove('hidden');
+
+                // 重置并启用手势缩放
+                resetImageTransform();
+                setupImageGestures();
+
+                // 显示压缩提示
+                if (parseFloat(originalInfo.sizeInMB) > 0.5) {
+                    showToast(`图片已压缩: ${originalInfo.sizeInMB}MB → ${compressedInfo.sizeInMB}MB`);
+                }
+
+                console.log('preview updated with compressed image');
+            } catch (err) {
+                console.error('图片处理失败:', err);
+                alert('图片处理失败: ' + err.message);
+            }
         }
 
         // 保存
@@ -1907,8 +2702,12 @@
                 // 计算其他数据大小
                 const transformsJson = JSON.stringify(imgTransforms);
                 const orderJson = JSON.stringify(ootdOrder);
+                const outfitsJson = JSON.stringify(outfits);
+                const draftsJson = JSON.stringify(outfitDrafts);
                 dataSize += new Blob([transformsJson]).size;
                 dataSize += new Blob([orderJson]).size;
+                dataSize += new Blob([outfitsJson]).size;
+                dataSize += new Blob([draftsJson]).size;
 
                 totalSize = imageSize + dataSize;
 
@@ -1917,6 +2716,8 @@
                     total: 50 * 1024 * 1024,
                     itemCount: items.length,
                     imageCount: imageCount,
+                    outfitCount: outfits.length,
+                    draftCount: outfitDrafts.length,
                     imageSize: imageSize,
                     dataSize: dataSize
                 };
@@ -2059,6 +2860,8 @@
 
             // 更新数据详情
             document.getElementById('itemCount').textContent = stats.itemCount + ' 件';
+            document.getElementById('outfitCount').textContent = stats.outfitCount + ' 套';
+            document.getElementById('draftCount').textContent = (stats.draftCount || 0) + ' 个';
             document.getElementById('imageCount').textContent = stats.imageCount + ' 张';
             document.getElementById('imageSize').textContent = formatSize(stats.imageSize);
             document.getElementById('dataSize').textContent = formatSize(stats.dataSize);
