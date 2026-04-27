@@ -1565,27 +1565,39 @@
 
         // 确认添加选中的单品
         async function confirmAddItems() {
-            const MAX_HEIGHT = 65;
-            const MAX_WIDTH = 45;
-            const BASE_WIDTH = 40;
-            for (const itemId of tempSelectedItems) {
-                const exists = selectedOutfitItems.some(i => i.itemId === itemId);
-                if (!exists) {
-                    let ratio = 1;
-                    try { ratio = await getImageRatio(imgs[itemId]); } catch(e) {}
-                    let w = BASE_WIDTH;
-                    let h = BASE_WIDTH / ratio;
-                    if (h > MAX_HEIGHT) { h = MAX_HEIGHT; w = MAX_HEIGHT * ratio; }
-                    if (w > MAX_WIDTH) { w = MAX_WIDTH; h = MAX_WIDTH / ratio; }
-                    selectedOutfitItems.push({
-                        id: 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-                        itemId: itemId,
-                        x: (100 - w) / 2 + (Math.random() - 0.5) * 10,
-                        y: Math.max(2, 30 - h / 2 + (Math.random() - 0.5) * 10),
-                        width: Math.round(w),
-                        height: Math.round(h)
-                    });
-                }
+            const MAX_HEIGHT = 55;
+            const MAX_WIDTH = 32;
+            const BASE_WIDTH = 28;
+            const itemsToAdd = [...tempSelectedItems].filter(id => !selectedOutfitItems.some(i => i.itemId === id));
+            // 按类型排序：服装在前、配饰在后
+            itemsToAdd.sort((a, b) => {
+                const aIsClothes = config.clothes.types.includes(items.find(i => i.id === a)?.type);
+                const bIsClothes = config.clothes.types.includes(items.find(i => i.id === b)?.type);
+                return aIsClothes === bIsClothes ? 0 : aIsClothes ? -1 : 1;
+            });
+            // 2列网格布局
+            const COLUMNS = 2;
+            for (let idx = 0; idx < itemsToAdd.length; idx++) {
+                const itemId = itemsToAdd[idx];
+                let ratio = 1;
+                try { ratio = await getImageRatio(imgs[itemId]); } catch(e) {}
+                let w = BASE_WIDTH;
+                let h = BASE_WIDTH / ratio;
+                if (h > MAX_HEIGHT) { h = MAX_HEIGHT; w = MAX_HEIGHT * ratio; }
+                if (w > MAX_WIDTH) { w = MAX_WIDTH; h = MAX_WIDTH / ratio; }
+                const col = idx % COLUMNS;
+                const row = Math.floor(idx / COLUMNS);
+                const colCenter = (100 / COLUMNS) * (col + 0.5);
+                const x = colCenter - w / 2;
+                const y = 3 + row * 48;
+                selectedOutfitItems.push({
+                    id: 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                    itemId: itemId,
+                    x: Math.round(x),
+                    y: Math.round(y),
+                    width: Math.round(w),
+                    height: Math.round(h)
+                });
             }
 
             closeModal('itemSelectorModal');
