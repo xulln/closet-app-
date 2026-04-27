@@ -1129,12 +1129,24 @@
             grid.innerHTML = html;
         }
 
-        // 渲染搭配卡片（缩略图）
+        // 渲染搭配卡片（缩略图）- 自动缩放所有单品到卡片内
         function renderOutfitCard(outfit, index, isDraft) {
             const draftClass = isDraft ? 'opacity-60 grayscale-[30%]' : '';
             const draftLabel = isDraft ? '<span class="absolute top-2 left-2 px-2 py-1 bg-gray-500 text-white text-[10px] font-bold rounded-full">草稿</span>' : '';
             const clickHandler = isDraft ? `editOutfit('${outfit.id}', true)` : `editOutfit('${outfit.id}')`;
             const deleteHandler = isDraft ? `deleteDraft('${outfit.id}')` : `deleteOutfit('${outfit.id}')`;
+
+            // 计算所有单品的包围盒
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            outfit.items.forEach(item => {
+                minX = Math.min(minX, item.x);
+                minY = Math.min(minY, item.y);
+                maxX = Math.max(maxX, item.x + item.width);
+                maxY = Math.max(maxY, item.y + item.height);
+            });
+            const boundsW = maxX - minX || 100;
+            const boundsH = maxY - minY || 100;
+            const scale = Math.min(90 / boundsW, 90 / boundsH, 1);
 
             return `
                 <div class="outfit-card ${draftClass}" onclick="${clickHandler}">
@@ -1142,8 +1154,10 @@
                     <div class="outfit-card-inner">
                         ${outfit.items.map(item => `
                             <div class="outfit-card-item" style="
-                                left: ${item.x}%; top: ${item.y}%;
-                                width: ${item.width}%; height: ${item.height}%;
+                                left: ${((item.x - minX) * scale + (100 - boundsW * scale) / 2).toFixed(1)}%;
+                                top: ${((item.y - minY) * scale + (100 - boundsH * scale) / 2).toFixed(1)}%;
+                                width: ${(item.width * scale).toFixed(1)}%;
+                                height: ${(item.height * scale).toFixed(1)}%;
                             ">
                                 <img src="${imgs[item.itemId] || ''}" alt="">
                             </div>
