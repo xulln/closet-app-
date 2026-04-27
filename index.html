@@ -1549,23 +1549,39 @@
             renderSelectorItems();
         }
 
+        // 获取图片实际宽高比
+        function getImageRatio(imageDataUrl) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(img.naturalWidth / img.naturalHeight);
+                img.src = imageDataUrl;
+            });
+        }
+
         // 确认添加选中的单品
-        function confirmAddItems() {
-            // 为每个新选中的单品创建画布项
-            tempSelectedItems.forEach(itemId => {
-                // 检查是否已在画布中
+        async function confirmAddItems() {
+            const MAX_HEIGHT = 65;
+            const MAX_WIDTH = 45;
+            const BASE_WIDTH = 40;
+            for (const itemId of tempSelectedItems) {
                 const exists = selectedOutfitItems.some(i => i.itemId === itemId);
                 if (!exists) {
+                    let ratio = 1;
+                    try { ratio = await getImageRatio(imgs[itemId]); } catch(e) {}
+                    let w = BASE_WIDTH;
+                    let h = BASE_WIDTH / ratio;
+                    if (h > MAX_HEIGHT) { h = MAX_HEIGHT; w = MAX_HEIGHT * ratio; }
+                    if (w > MAX_WIDTH) { w = MAX_WIDTH; h = MAX_WIDTH / ratio; }
                     selectedOutfitItems.push({
                         id: 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
                         itemId: itemId,
-                        x: 10 + Math.random() * 30,
-                        y: 10 + Math.random() * 30,
-                        width: 40,
-                        height: 53 // 3:4 比例
+                        x: (100 - w) / 2 + (Math.random() - 0.5) * 10,
+                        y: Math.max(2, 30 - h / 2 + (Math.random() - 0.5) * 10),
+                        width: Math.round(w),
+                        height: Math.round(h)
                     });
                 }
-            });
+            }
 
             closeModal('itemSelectorModal');
             renderOutfitCanvas();
