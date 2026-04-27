@@ -2532,6 +2532,23 @@
             });
         }
 
+        // 批量移除所有已有单品的白色背景
+        async function batchRemoveBackgrounds() {
+            const ids = Object.keys(imgs);
+            let done = 0;
+            for (const id of ids) {
+                try {
+                    imgs[id] = await removeWhiteBackground(imgs[id]);
+                    done++;
+                } catch(e) {
+                    console.warn('处理失败:', id, e);
+                }
+            }
+            await saveData();
+            render();
+            alert(`已完成：${done}/${ids.length} 张图片去底`);
+        }
+
         // 图片处理
         async function previewImg(input) {
             console.log('previewImg called', input.files);
