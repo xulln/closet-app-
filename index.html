@@ -3099,7 +3099,6 @@
                 try {
                     btnText.textContent = '去底处理中…';
                     const bgResult = await removeWhiteBackground(previewOriginalData || preview.src, 220);
-                    result = bgResult.dataUrl;
                     console.log(`Background removed: ${bgResult.removedCount} pixels, bg=${bgResult.bgColor}`);
                     if (bgResult.removedCount === 0) {
                         btnText.textContent = '移除背景';
@@ -3107,8 +3106,13 @@
                         showToast('未检测到纯色背景，建议使用纯色背景拍摄');
                         return;
                     }
+                    // 合成白底
+                    btnText.textContent = '合成白底中…';
+                    const resp = await fetch(bgResult.dataUrl);
+                    const blob = await resp.blob();
+                    result = await window.compositeOnWhite(blob);
                 } catch (err) {
-                    console.warn('White threshold also failed:', err.message);
+                    console.warn('Background removal failed:', err.message);
                     btnText.textContent = '移除背景';
                     btn.disabled = false;
                     showToast('去背景失败，请重试');
@@ -3854,6 +3858,9 @@
                 if (loadingEl) loadingEl.classList.add('hidden');
             }
         };
+
+        // 导出供主脚本使用
+        window.compositeOnWhite = compositeOnWhite;
 
         async function compositeOnWhite(blob) {
             const img = new Image();
