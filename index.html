@@ -3058,43 +3058,57 @@
 
                 console.log('preview updated with compressed image');
 
-                // 智能去背景
+                // 去背景
                 previewBgRemoved = null;
                 previewOriginalData = compressedData;
-                if (window.removeBackgroundSmart && currentAddMode !== 'ootd') {
-                    // AI 去背景（重试一次 + 白底阈值兜底）
-                    const tryRemoveBg = async (retry = true) => {
-                        try {
-                            const result = await removeBackgroundSmart(aiInput);
-                            return result;
-                        } catch (err) {
-                            if (retry) {
-                                console.warn('AI bg removal failed, retrying...', err.message);
-                                return tryRemoveBg(false);
+                if (currentAddMode !== 'ootd') {
+                    if (window.removeBackgroundSmart) {
+                        // AI 去背景（重试一次 + 白底阈值兜底）
+                        const tryRemoveBg = async (retry = true) => {
+                            try {
+                                const result = await removeBackgroundSmart(aiInput);
+                                return result;
+                            } catch (err) {
+                                if (retry) {
+                                    console.warn('AI bg removal failed, retrying...', err.message);
+                                    return tryRemoveBg(false);
+                                }
+                                throw err;
                             }
-                            throw err;
-                        }
-                    };
-                    tryRemoveBg().then(bgRemovedData => {
-                        preview.src = bgRemovedData;
-                        previewBgRemoved = bgRemovedData;
-                        const editBtn = document.getElementById('editImageBtn');
-                        if (editBtn) editBtn.classList.remove('hidden');
-                        resetImageTransform();
-                        console.log('AI background removed successfully');
-                    }).catch(async err => {
-                        console.warn('AI bg removal failed, falling back to white threshold:', err.message);
-                        try {
-                            const fallback = await removeWhiteBackground(compressedData);
-                            preview.src = fallback;
-                            previewBgRemoved = fallback;
-                        } catch (e) {
+                        };
+                        tryRemoveBg().then(bgRemovedData => {
+                            preview.src = bgRemovedData;
+                            previewBgRemoved = bgRemovedData;
+                            const editBtn = document.getElementById('editImageBtn');
+                            if (editBtn) editBtn.classList.remove('hidden');
+                            resetImageTransform();
+                            console.log('AI background removed successfully');
+                        }).catch(async err => {
+                            console.warn('AI bg failed, using white threshold:', err.message);
+                            try {
+                                const fallback = await removeWhiteBackground(compressedData);
+                                preview.src = fallback;
+                                previewBgRemoved = fallback;
+                            } catch (e) {
+                                previewBgRemoved = null;
+                            }
+                            const editBtn = document.getElementById('editImageBtn');
+                            if (editBtn) editBtn.classList.remove('hidden');
+                            resetImageTransform();
+                        });
+                    } else {
+                        // AI 不可用，直接用白色阈值去背景
+                        console.log('AI not available, using white threshold');
+                        removeWhiteBackground(compressedData).then(bgRemoved => {
+                            preview.src = bgRemoved;
+                            previewBgRemoved = bgRemoved;
+                            const editBtn = document.getElementById('editImageBtn');
+                            if (editBtn) editBtn.classList.remove('hidden');
+                            resetImageTransform();
+                        }).catch(() => {
                             previewBgRemoved = null;
-                        }
-                        const editBtn = document.getElementById('editImageBtn');
-                        if (editBtn) editBtn.classList.remove('hidden');
-                        resetImageTransform();
-                    });
+                        });
+                    }
                 }
             } catch (err) {
                 console.error('图片处理失败:', err);
