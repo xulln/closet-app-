@@ -30,9 +30,9 @@
         .tag:active { transform: scale(0.96); }
         .tag-s { height: 38px; padding: 0 18px; border-radius: 1rem; white-space: nowrap; }
         .tag-l { min-height: 72px; border-radius: 1.5rem; flex-direction: column; padding: 12px; }
-        .tag.selected { background: #ffffff; border: 2px solid #111827; }
+        .tag.selected { background: #ffffff; border: 1.5px solid #9ca3af; }
         .tag-t { font-weight: 700; font-size: 12px; color: #6b7280; }
-        .tag.selected .tag-t { color: #111827; }
+        .tag.selected .tag-t { color: #1f2937; }
         .tag-c { font-size: 10px; font-weight: 800; margin-top: 4px; color: #9ca3af; }
         .tab { position: relative; padding-bottom: 12px; font-size: 15px; font-weight: 800; transition: all 0.3s; }
         .tab.active { color: #000; } .tab:not(.active) { color: #d1d5db; }
@@ -666,16 +666,16 @@
         // 性别对应的风格/场合默认选项
         const genderDefaults = {
             '女': {
-                styles: ['简约','休闲','通勤','复古','法式','韩系','街头','甜美'],
-                scenes: ['日常','通勤','约会','聚会','运动','旅行','正式场合']
+                styles: ['气质','休闲','可爱','温柔','简约','复古','中性'],
+                scenes: ['通勤','约会','正式','探店出片','户外运动','旅行度假']
             },
             '男': {
-                styles: ['简约','休闲','通勤','运动','街头','复古','商务'],
-                scenes: ['日常','通勤','运动','聚会','旅行','正式场合']
+                styles: ['休闲','运动','街头','复古','商务'],
+                scenes: ['通勤','约会','正式','户外运动','旅行度假']
             },
             '不透露': {
-                styles: ['简约','休闲','通勤','复古','运动','街头'],
-                scenes: ['日常','通勤','运动','聚会','旅行']
+                styles: ['气质','休闲','可爱','温柔','简约','复古','中性','运动','街头','商务'],
+                scenes: ['通勤','约会','正式','探店出片','户外运动','旅行度假']
             }
         };
         const tempOptions = ['35℃以上','28-34℃','20-27℃','13-19℃','10-12℃','10℃以下'];
@@ -2358,11 +2358,11 @@
         function selectWizardGender(gender) {
             wizardGender = gender;
             document.querySelectorAll('[id^="wizGender"]').forEach(b => {
-                b.classList.remove('bg-white', 'border-2', 'border-black', 'text-black');
+                b.classList.remove('bg-white', 'border', 'border-gray-400', 'text-gray-800');
                 b.classList.add('bg-gray-50', 'border', 'border-gray-200');
             });
             const btn = document.getElementById('wizGender' + (gender === '女' ? 'F' : gender === '男' ? 'M' : 'N'));
-            if (btn) { btn.classList.remove('bg-gray-50', 'border', 'border-gray-200'); btn.classList.add('bg-white', 'border-2', 'border-black', 'text-black'); }
+            if (btn) { btn.classList.remove('bg-gray-50', 'border', 'border-gray-200'); btn.classList.add('bg-white', 'border', 'border-gray-400', 'text-gray-800'); }
             const nextBtn = document.getElementById('wizardNextBtn1');
             nextBtn.classList.remove('opacity-30', 'pointer-events-none');
         }
