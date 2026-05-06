@@ -451,8 +451,12 @@
                 </div>
 
                 <!-- 编辑图片按钮（默认隐藏，上传后显示）-->
-                <button type="button" id="editImageBtn" onclick="enableImageEdit()" class="w-full py-3 bg-gray-100 rounded-2xl text-sm font-bold text-gray-600 active:scale-95 transition-transform hidden">
-                    ✏️ 编辑图片
+                <button type="button" id="editImageBtn" onclick="enableImageEdit()" class="w-full py-3 bg-gray-100 rounded-2xl text-sm font-bold text-gray-600 active:scale-95 transition-transform hidden flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                        <path d="m15 5 4 4"/>
+                    </svg>
+                    <span id="editImageBtnText">编辑图片</span>
                 </button>
 
                 <!-- 旋转控制（编辑模式下显示）-->
@@ -2413,9 +2417,13 @@
             previewWrapper.classList.add('hidden');
             uploadLabel.classList.remove('hidden');
 
-            // 隐藏编辑按钮
+            // 隐藏编辑按钮并重置状态
             const editBtn = document.getElementById('editImageBtn');
-            if (editBtn) editBtn.classList.add('hidden');
+            if (editBtn) {
+                editBtn.classList.add('hidden');
+                editBtn.innerHTML = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg><span>编辑图片</span>';
+                editBtn.onclick = enableImageEdit;
+            }
 
             // 隐藏裁剪框
             const cropOverlay = document.getElementById('cropOverlay');
@@ -2452,13 +2460,28 @@
         // 启用图片编辑功能
         function enableImageEdit() {
             imgTransform.enabled = true;
-            document.getElementById('editImageBtn').classList.add('hidden');
+            const btn = document.getElementById('editImageBtn');
+            // 切换为编辑完成状态：打勾图标 + "编辑完成"
+            btn.innerHTML = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>编辑完成</span>';
+            btn.onclick = finishImageEdit;
             document.getElementById('rotateControl').classList.remove('hidden');
             document.getElementById('cropOverlay').classList.remove('hidden');
             initCropRect();
             setupImageGestures();
             setupCropGestures();
             showToast('拖动裁剪框、滑动旋转角度');
+        }
+
+        // 完成图片编辑
+        function finishImageEdit() {
+            imgTransform.enabled = false;
+            const btn = document.getElementById('editImageBtn');
+            // 恢复为编辑图片状态：铅笔图标 + "编辑图片"
+            btn.innerHTML = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg><span>编辑图片</span>';
+            btn.onclick = enableImageEdit;
+            document.getElementById('rotateControl').classList.add('hidden');
+            document.getElementById('cropOverlay').classList.add('hidden');
+            showToast('编辑完成');
         }
 
         // 显示提示信息
