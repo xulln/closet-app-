@@ -386,15 +386,29 @@
     <!-- 选择弹窗 -->
     <div id="choiceModal" class="modal" onclick="closeModal('choiceModal')">
         <div class="modal-box !p-6" onclick="event.stopPropagation()">
-            <h3 class="text-center text-gray-400 text-xs font-black uppercase tracking-widest mb-6">添加单品</h3>
-            <div class="grid grid-cols-2 gap-4">
-                <button onclick="openAdd('clothes')" class="bg-gray-100 h-28 rounded-3xl flex flex-col items-center justify-center space-y-2 active:scale-95 transition-transform">
-                    <div class="w-12 h-12 bg-black text-white rounded-full flex items-center justify-center text-xl">👔</div>
-                    <span class="text-sm font-bold">衣服</span>
+            <h3 class="text-center text-gray-400 text-xs font-black uppercase tracking-widest mb-6">添加</h3>
+            <div class="flex gap-3">
+                <button onclick="openAdd('ootd')" class="flex-1 bg-gray-100 h-28 rounded-3xl flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform">
+                    <svg class="w-12 h-12" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="24" cy="10" r="4"/>
+                        <path d="M16 22 L32 22 L34 44 L14 44 Z"/>
+                    </svg>
+                    <span class="text-xs font-bold">全身穿搭</span>
                 </button>
-                <button onclick="openAdd('acc')" class="bg-gray-100 h-28 rounded-3xl flex flex-col items-center justify-center space-y-2 active:scale-95 transition-transform">
-                    <div class="w-12 h-12 bg-gray-200 text-black rounded-full flex items-center justify-center text-xl">👜</div>
-                    <span class="text-sm font-bold text-gray-600">配饰</span>
+                <button onclick="openAdd('clothes')" class="flex-1 bg-gray-100 h-28 rounded-3xl flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform">
+                    <svg class="w-12 h-12" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 8 L12 16 L18 18 L18 40 L30 40 L30 18 L36 16 L32 8 Q24 12 16 8Z"/>
+                    </svg>
+                    <span class="text-xs font-bold">衣服单品</span>
+                </button>
+                <button onclick="openAdd('acc')" class="flex-1 bg-gray-100 h-28 rounded-3xl flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform">
+                    <svg class="w-12 h-12" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 8 Q24 4 36 8"/>
+                        <path d="M12 16 Q24 12 36 16"/>
+                        <path d="M12 24 Q24 20 36 24"/>
+                        <circle cx="24" cy="12" r="3"/>
+                    </svg>
+                    <span class="text-xs font-bold">配饰单品</span>
                 </button>
             </div>
             <button onclick="closeModal('choiceModal')" class="w-full mt-6 py-4 text-gray-400 font-bold">取消</button>
@@ -405,7 +419,7 @@
     <div id="addModal" class="modal" onclick="closeModal('addModal')">
         <div class="modal-box" onclick="event.stopPropagation()">
             <div class="flex justify-between items-center mb-6">
-                <h3 id="addTitle" class="text-lg font-extrabold">添加单品</h3>
+                <h3 id="addTitle" class="text-lg font-extrabold">添加</h3>
                 <button onclick="closeModal('addModal')" class="text-gray-400 font-bold text-sm">关闭</button>
             </div>
             <input type="hidden" id="editId">
@@ -448,7 +462,7 @@
                     <button type="button" onclick="setRotation(0)" class="text-xs font-bold text-gray-500 bg-gray-100 px-3 py-1 rounded-full flex-shrink-0 active:scale-95 transition-transform">复位</button>
                 </div>
 
-                <div>
+                <div id="typeSection">
                     <label class="text-xs font-black uppercase tracking-widest text-gray-400 block mb-2">分类</label>
                     <select id="itemType" onchange="onTypeChange()" class="w-full rounded-2xl py-4 px-5 text-sm font-bold"></select>
                 </div>
@@ -2228,7 +2242,13 @@
         function openAdd(mode) {
             currentAddMode = mode;
             closeModal('choiceModal');
-            document.getElementById('addTitle').textContent = mode === 'clothes' ? '添加衣服' : '添加配饰';
+            if (mode === 'ootd') {
+                document.getElementById('addTitle').textContent = '添加穿搭';
+            } else if (mode === 'clothes') {
+                document.getElementById('addTitle').textContent = '添加衣服';
+            } else {
+                document.getElementById('addTitle').textContent = '添加配饰';
+            }
             document.getElementById('editId').value = '';
 
             // 清空上次上传的图片
@@ -2241,7 +2261,17 @@
             document.getElementById('washNote').value = '';
 
             const typeSelect = document.getElementById('itemType');
-            typeSelect.innerHTML = config[mode].types.map(t => `<option value="${t}">${t}</option>`).join('');
+            if (mode === 'ootd') {
+                typeSelect.innerHTML = '<option value="全身">全身</option>';
+            } else if (mode === 'clothes') {
+                typeSelect.innerHTML = config.clothes.types
+                    .filter(t => t !== '全身')
+                    .map(t => `<option value="${t}">${t}</option>`).join('');
+            } else {
+                typeSelect.innerHTML = config.acc.types
+                    .filter(t => t !== '全身')
+                    .map(t => `<option value="${t}">${t}</option>`).join('');
+            }
             onTypeChange();
             document.getElementById('addModal').classList.add('show');
         }
@@ -2252,9 +2282,23 @@
             document.getElementById('editId').value = id;
             document.getElementById('addTitle').textContent = '编辑单品';
 
-            currentAddMode = config.clothes.types.includes(item.type) ? 'clothes' : 'acc';
+            if (item.type === '全身') {
+                currentAddMode = 'ootd';
+            } else {
+                currentAddMode = config.clothes.types.includes(item.type) ? 'clothes' : 'acc';
+            }
             const typeSelect = document.getElementById('itemType');
-            typeSelect.innerHTML = config[currentAddMode].types.map(t => `<option value="${t}" ${t===item.type?'selected':''}>${t}</option>`).join('');
+            if (currentAddMode === 'ootd') {
+                typeSelect.innerHTML = '<option value="全身" selected>全身</option>';
+            } else if (currentAddMode === 'clothes') {
+                typeSelect.innerHTML = config.clothes.types
+                    .filter(t => t !== '全身')
+                    .map(t => `<option value="${t}" ${t===item.type?'selected':''}>${t}</option>`).join('');
+            } else {
+                typeSelect.innerHTML = config.acc.types
+                    .filter(t => t !== '全身')
+                    .map(t => `<option value="${t}" ${t===item.type?'selected':''}>${t}</option>`).join('');
+            }
 
             document.getElementById('itemStyle').value = item.style || '';
             document.getElementById('itemTemp').value = item.temp || '';
@@ -2306,9 +2350,19 @@
         }
 
         function onTypeChange() {
-            const typeValue = document.getElementById('itemType').value;
-            const isFullBody = typeValue === '全身';
+            const isOotd = currentAddMode === 'ootd';
             const isAccessory = currentAddMode === 'acc';
+
+            // ootd 模式: 隐藏分类下拉和洗涤，只显示标签
+            if (isOotd) {
+                document.getElementById('typeSection').classList.add('hidden');
+                document.getElementById('tagSection').classList.remove('hidden');
+                document.getElementById('washSection').classList.add('hidden');
+                return;
+            }
+
+            // clothes/acc 模式: 显示分类下拉
+            document.getElementById('typeSection').classList.remove('hidden');
 
             // 配饰：只显示上传和分类
             if (isAccessory) {
@@ -2317,14 +2371,12 @@
                 return;
             }
 
-            // 衣服：选择"全身"时显示标签，其他选项显示洗涤方式
-            document.getElementById('tagSection').classList.toggle('hidden', !isFullBody);
-            document.getElementById('washSection').classList.toggle('hidden', isFullBody);
-            if(!isFullBody) {
-                document.getElementById('itemStyle').value = '';
-                document.getElementById('itemTemp').value = '';
-                document.getElementById('itemScene').value = '';
-            }
+            // 衣服：显示洗涤方式（标签仅 ootd 模式使用）
+            document.getElementById('tagSection').classList.add('hidden');
+            document.getElementById('washSection').classList.remove('hidden');
+            document.getElementById('itemStyle').value = '';
+            document.getElementById('itemTemp').value = '';
+            document.getElementById('itemScene').value = '';
         }
 
         function setCategoryTag(tag) {
@@ -2878,7 +2930,7 @@
                 // 智能去背景
                 previewBgRemoved = null;
                 previewOriginalData = compressedData;
-                if (window.removeBackgroundSmart) {
+                if (window.removeBackgroundSmart && currentAddMode !== 'ootd') {
                     removeBackgroundSmart(compressedData).then(bgRemovedData => {
                         // 更新预览为去背景版本
                         preview.src = bgRemovedData;
@@ -2903,7 +2955,7 @@
             try {
                 const id = document.getElementById('editId').value || Date.now().toString();
                 const isNew = !document.getElementById('editId').value;
-                const typeValue = document.getElementById('itemType').value;
+                const typeValue = currentAddMode === 'ootd' ? '全身' : document.getElementById('itemType').value;
 
                 // 自动生成名称
                 const existingCount = items.filter(i => i.type === typeValue).length;
