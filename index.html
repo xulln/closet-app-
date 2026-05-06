@@ -2357,11 +2357,11 @@
         function selectWizardGender(gender) {
             wizardGender = gender;
             document.querySelectorAll('[id^="wizGender"]').forEach(b => {
-                b.classList.remove('bg-black', 'text-white');
+                b.classList.remove('bg-white', 'border-2', 'border-black', 'text-black');
                 b.classList.add('bg-gray-50', 'border', 'border-gray-200');
             });
             const btn = document.getElementById('wizGender' + (gender === '女' ? 'F' : gender === '男' ? 'M' : 'N'));
-            if (btn) { btn.classList.remove('bg-gray-50', 'border', 'border-gray-200'); btn.classList.add('bg-black', 'text-white'); }
+            if (btn) { btn.classList.remove('bg-gray-50', 'border', 'border-gray-200'); btn.classList.add('bg-white', 'border-2', 'border-black', 'text-black'); }
             const nextBtn = document.getElementById('wizardNextBtn1');
             nextBtn.classList.remove('opacity-30', 'pointer-events-none');
         }
@@ -2415,7 +2415,7 @@
         }
 
         function toggleCustomInput(type) {
-            const t = type.charAt(0).toUpperCase() + type.slice(1);
+            const t = type.charAt(0).toUpperCase() + type.slice(1, -1);
             const row = document.getElementById('wizCustom' + t + 'Row');
             const input = document.getElementById('wizCustom' + t);
             row.classList.toggle('hidden');
@@ -2425,7 +2425,7 @@
         }
 
         function addCustomPref(type) {
-            const t = type.charAt(0).toUpperCase() + type.slice(1);
+            const t = type.charAt(0).toUpperCase() + type.slice(1, -1);
             const input = document.getElementById('wizCustom' + t);
             const val = input.value.trim();
             if (!val) return;
@@ -2530,6 +2530,7 @@
                 const previewImg = document.getElementById('previewImg');
                 previewImg.src = imgToEdit;
                 previewImg.dataset.original = originalImgs[id] || imgToEdit;
+                previewOriginalData = imgToEdit;
                 document.getElementById('previewWrapper').classList.remove('hidden');
                 document.getElementById('uploadLabel').classList.add('hidden');
 
@@ -3214,7 +3215,7 @@
 
         // 移除白色背景，将白色/近白色像素转为透明
         function removeWhiteBackground(imageDataUrl, threshold = 235) {
-            return new Promise((resolve) => {
+            return new Promise((resolve, reject) => {
                 const img = new Image();
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
@@ -3238,6 +3239,7 @@
                     ctx.putImageData(imageData, 0, 0);
                     resolve(canvas.toDataURL('image/png'));
                 };
+                img.onerror = () => reject(new Error('Failed to load image'));
                 img.src = imageDataUrl;
             });
         }
