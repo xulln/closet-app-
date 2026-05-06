@@ -560,11 +560,6 @@
                     </div>
                 </div>
 
-                <!-- 一键去底按钮 -->
-                <button id="bgRemoveBtn" onclick="batchRemoveBackgrounds()" class="w-full bg-black text-white py-3 rounded-2xl font-bold text-sm active:scale-95 transition-transform">
-                    一键移除图片白底
-                </button>
-
                 <!-- 重新压缩按钮 -->
                 <div id="recompressSection" class="hidden">
                     <button onclick="recompressAllImages()" class="w-full bg-orange-100 text-orange-700 py-3 rounded-2xl font-bold text-sm active:scale-95 transition-transform">
@@ -623,6 +618,10 @@
                     <div>
                         <label class="text-xs font-black uppercase tracking-widest text-gray-400 block mb-3">适用温度（多选）</label>
                         <div id="wizTemps" class="flex flex-wrap gap-2"></div>
+                        <div class="mt-2 flex gap-2">
+                            <input type="text" id="wizCustomTemp" placeholder="自定义温度..." class="flex-1 py-2 px-4 rounded-xl text-sm font-semibold">
+                            <button onclick="addCustomPref('temps')" class="py-2 px-4 bg-gray-100 rounded-xl text-sm font-bold active:scale-95 transition-transform">添加</button>
+                        </div>
                     </div>
                     <div>
                         <label class="text-xs font-black uppercase tracking-widest text-gray-400 block mb-3">适用场合（多选）</label>
@@ -2416,7 +2415,8 @@
         }
 
         function addCustomPref(type) {
-            const input = document.getElementById(type === 'styles' ? 'wizCustomStyle' : 'wizCustomScene');
+            const inputId = type === 'styles' ? 'wizCustomStyle' : type === 'temps' ? 'wizCustomTemp' : 'wizCustomScene';
+            const input = document.getElementById(inputId);
             const val = input.value.trim();
             if (!val) return;
             if (!wizardSelectedPrefs[type].includes(val)) {
@@ -3229,28 +3229,6 @@
                 };
                 img.src = imageDataUrl;
             });
-        }
-
-        // 批量移除所有已有单品的白色背景
-        async function batchRemoveBackgrounds() {
-            const ids = Object.keys(imgs);
-            let done = 0;
-            const useSmart = !!window.removeBackgroundSmart;
-            for (const id of ids) {
-                try {
-                    if (useSmart) {
-                        imgs[id] = await window.removeBackgroundSmart(imgs[id]);
-                    } else {
-                        imgs[id] = await removeWhiteBackground(imgs[id]);
-                    }
-                    done++;
-                } catch(e) {
-                    console.warn('处理失败:', id, e);
-                }
-            }
-            await saveData();
-            render();
-            alert(`已完成：${done}/${ids.length} 张图片去底`);
         }
 
         // 图片处理
