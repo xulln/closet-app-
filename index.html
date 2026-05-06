@@ -11,6 +11,14 @@
     <link rel="apple-touch-icon" href="icons/app-icon-192.png">
     <title>Closet Explore</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script type="importmap">
+    {
+      "imports": {
+        "@imgly/background-removal": "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/index.mjs",
+        "onnxruntime-web": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/ort.all.min.mjs"
+      }
+    }
+    </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
         * { -webkit-tap-highlight-color: transparent; }
@@ -415,6 +423,11 @@
                         <img id="previewImg" class="w-full h-full" style="object-fit: cover;">
                         <button type="button" onclick="clearImage()" class="absolute top-2 right-2 w-8 h-8 bg-black/60 text-white rounded-full flex items-center justify-center text-lg font-bold z-10">×</button>
                     </div>
+                    <div id="bgRemovalLoading" class="hidden absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-20">
+                        <svg class="w-10 h-10 text-black animate-spin mb-3" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                        <span class="text-sm font-bold text-black">AI 识别中…</span>
+                        <span id="bgRemovalProgress" class="text-xs text-gray-500 mt-1"></span>
+                    </div>
                 </div>
 
                 <!-- 编辑图片按钮（默认隐藏，上传后显示）-->
@@ -568,6 +581,7 @@
 
         // 内存中的数据缓存
         let items = [], imgs = {}, originalImgs = {}, imgTransforms = {}, ootdOrder = {}, outfits = [], outfitDrafts = [];
+        let previewBgRemoved = null; // 智能去背景结果
 
         const config = {
             clothes: { types: ['全身','上衣','裤子','半身裙','外套','连衣裙','套装','鞋子'], icon: '👔' },
@@ -2336,6 +2350,9 @@
             const editBtn = document.getElementById('editImageBtn');
             if (editBtn) editBtn.classList.add('hidden');
 
+            // 清空智能去背景结果
+            previewBgRemoved = null;
+
             // 清空文件输入
             fileInput.value = '';
         }
@@ -2568,9 +2585,14 @@
         async function batchRemoveBackgrounds() {
             const ids = Object.keys(imgs);
             let done = 0;
+            const useSmart = !!window.removeBackgroundSmart;
             for (const id of ids) {
                 try {
-                    imgs[id] = await removeWhiteBackground(imgs[id]);
+                    if (useSmart) {
+                        imgs[id] = await window.removeBackgroundSmart(imgs[id]);
+                    } else {
+                        imgs[id] = await removeWhiteBackground(imgs[id]);
+                    }
                     done++;
                 } catch(e) {
                     console.warn('处理失败:', id, e);
@@ -2667,6 +2689,24 @@
                 }
 
                 console.log('preview updated with compressed image');
+
+                // 智能去背景
+                previewBgRemoved = null;
+                if (window.removeBackgroundSmart) {
+                    removeBackgroundSmart(compressedData).then(bgRemovedData => {
+                        // 更新预览为去背景版本
+                        preview.src = bgRemovedData;
+                        preview.dataset.original = bgRemovedData;
+                        previewBgRemoved = bgRemovedData;
+                        // 重置编辑状态（新图片替代了原图）
+                        resetImageTransform();
+                        console.log('Background removed successfully');
+                    }).catch(err => {
+                        console.warn('Background removal failed, using original:', err);
+                        // 回退到旧方法的结果
+                        previewBgRemoved = null;
+                    });
+                }
             } catch (err) {
                 console.error('图片处理失败:', err);
                 alert('图片处理失败: ' + err.message);
@@ -2704,7 +2744,8 @@
                 if(previewImg) {
                     const transformedData = getTransformedImageData();
                     if(transformedData) {
-                        imgs[id] = await removeWhiteBackground(transformedData);
+                        // 智能去背景已处理，直接用；否则回退到白色阈值法
+                        imgs[id] = previewBgRemoved ? transformedData : await removeWhiteBackground(transformedData);
                         // 同时保存原始图片用于重新编辑
                         if(previewImg.dataset.original) {
                             originalImgs[id] = previewImg.dataset.original;
@@ -2716,7 +2757,7 @@
                             y: imgTransform.y
                         };
                     } else if(previewImg.dataset.data) {
-                        imgs[id] = await removeWhiteBackground(previewImg.dataset.data);
+                        imgs[id] = previewBgRemoved ? previewImg.dataset.data : await removeWhiteBackground(previewImg.dataset.data);
                     }
                 }
 
@@ -3014,6 +3055,74 @@
         }
 
         window.onload = init;
+    </script>
+
+    <!-- AI 背景移除模块 -->
+    <script type="module">
+        import * as imglyBackgroundRemoval from "@imgly/background-removal";
+        import * as ort from "onnxruntime-web";
+
+        const imglyRemoveBackground = imglyBackgroundRemoval.default || imglyBackgroundRemoval.removeBackground || imglyBackgroundRemoval;
+        const { preload } = imglyBackgroundRemoval;
+
+        // 配置 ONNX Runtime
+        ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/";
+
+        const MODEL = 'isnet_quint8'; // 40MB，比 fp16 快一半
+
+        // 启动时预加载模型
+        preload({ model: MODEL, output: { format: 'image/png' } }).then(() => {
+            console.log('Background removal model preloaded');
+        }).catch(() => {});
+
+        window.removeBackgroundSmart = async function(imageDataUrl, onProgress) {
+            const loadingEl = document.getElementById('bgRemovalLoading');
+            const progressEl = document.getElementById('bgRemovalProgress');
+
+            try {
+                if (loadingEl) loadingEl.classList.remove('hidden');
+                if (progressEl) progressEl.textContent = '处理中…';
+
+                const resp = await fetch(imageDataUrl);
+                const blob = await resp.blob();
+
+                const resultBlob = await imglyRemoveBackground(blob, {
+                    model: MODEL,
+                    output: { format: 'image/png' },
+                    progress: (key, current, total) => {
+                        if (progressEl) {
+                            progressEl.textContent = `加载 ${key}: ${Math.round(current / 1024 / 1024)}MB / ${Math.round(total / 1024 / 1024)}MB`;
+                        }
+                    }
+                });
+
+                if (progressEl) progressEl.textContent = '合成中…';
+
+                const result = await compositeOnWhite(resultBlob);
+                return result;
+            } finally {
+                if (loadingEl) loadingEl.classList.add('hidden');
+            }
+        };
+
+        async function compositeOnWhite(blob) {
+            const img = new Image();
+            const url = URL.createObjectURL(blob);
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+                img.src = url;
+            });
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+            URL.revokeObjectURL(url);
+            return canvas.toDataURL('image/png');
+        }
     </script>
 </body>
 </html>
