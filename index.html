@@ -2318,11 +2318,9 @@
                 document.getElementById('previewWrapper').classList.remove('hidden');
                 document.getElementById('uploadLabel').classList.add('hidden');
 
-                // 仅全身穿搭模式显示编辑按钮
-                if (currentAddMode === 'ootd') {
-                    const editBtn = document.getElementById('editImageBtn');
-                    if (editBtn) editBtn.classList.remove('hidden');
-                }
+                // 显示编辑按钮
+                const editBtn = document.getElementById('editImageBtn');
+                if (editBtn) editBtn.classList.remove('hidden');
 
                 // 恢复之前保存的裁剪参数（如果有）
                 if(imgTransforms[id]) {
@@ -2808,10 +2806,8 @@
             document.getElementById('rotateControl').classList.add('hidden');
             document.getElementById('cropOverlay').classList.add('hidden');
             cropDragging = null;
-            if (currentAddMode === 'ootd') {
-                const editBtn = document.getElementById('editImageBtn');
-                if (editBtn) editBtn.classList.remove('hidden');
-            }
+            const editBtn = document.getElementById('editImageBtn');
+            if (editBtn) editBtn.classList.remove('hidden');
             applyImageTransform();
         }
 
@@ -3044,14 +3040,12 @@
                 previewWrapper.offsetHeight; // 触发重排
                 previewWrapper.style.display = '';
 
-                // 仅全身穿搭模式显示编辑按钮
+                // 仅全身穿搭模式：立即显示编辑按钮并重置变换
                 if (currentAddMode === 'ootd') {
                     const editBtn = document.getElementById('editImageBtn');
                     if (editBtn) editBtn.classList.remove('hidden');
+                    resetImageTransform();
                 }
-
-                // 重置并启用手势缩放
-                resetImageTransform();
                 setupImageGestures();
 
                 // 显示压缩提示
@@ -3069,7 +3063,9 @@
                         // 更新预览为去背景版本
                         preview.src = bgRemovedData;
                         previewBgRemoved = bgRemovedData;
-                        // 重置编辑状态（新图片替代了原图）
+                        // 去背景完成后显示编辑按钮并重置状态
+                        const editBtn = document.getElementById('editImageBtn');
+                        if (editBtn) editBtn.classList.remove('hidden');
                         resetImageTransform();
                         console.log('Background removed successfully');
                     }).catch(err => {
