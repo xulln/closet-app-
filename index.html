@@ -403,10 +403,10 @@
                 </button>
                 <button onclick="openAdd('acc')" class="flex-1 bg-gray-100 h-28 rounded-3xl flex flex-col items-center justify-center gap-3 active:scale-95 transition-transform">
                     <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 8 Q24 4 36 8"/>
-                        <path d="M12 16 Q24 12 36 16"/>
-                        <path d="M12 24 Q24 20 36 24"/>
-                        <circle cx="24" cy="12" r="3"/>
+                        <path d="M12 18 Q24 14 36 18"/>
+                        <path d="M12 26 Q24 22 36 26"/>
+                        <path d="M12 34 Q24 30 36 34"/>
+                        <circle cx="24" cy="22" r="3"/>
                     </svg>
                     <span class="text-xs font-bold">配饰单品</span>
                 </button>
@@ -2318,9 +2318,11 @@
                 document.getElementById('previewWrapper').classList.remove('hidden');
                 document.getElementById('uploadLabel').classList.add('hidden');
 
-                // 显示编辑按钮
-                const editBtn = document.getElementById('editImageBtn');
-                if (editBtn) editBtn.classList.remove('hidden');
+                // 仅全身穿搭模式显示编辑按钮
+                if (currentAddMode === 'ootd') {
+                    const editBtn = document.getElementById('editImageBtn');
+                    if (editBtn) editBtn.classList.remove('hidden');
+                }
 
                 // 恢复之前保存的裁剪参数（如果有）
                 if(imgTransforms[id]) {
@@ -2806,8 +2808,10 @@
             document.getElementById('rotateControl').classList.add('hidden');
             document.getElementById('cropOverlay').classList.add('hidden');
             cropDragging = null;
-            const editBtn = document.getElementById('editImageBtn');
-            if (editBtn) editBtn.classList.remove('hidden');
+            if (currentAddMode === 'ootd') {
+                const editBtn = document.getElementById('editImageBtn');
+                if (editBtn) editBtn.classList.remove('hidden');
+            }
             applyImageTransform();
         }
 
@@ -3040,9 +3044,11 @@
                 previewWrapper.offsetHeight; // 触发重排
                 previewWrapper.style.display = '';
 
-                // 显示编辑按钮
-                const editBtn = document.getElementById('editImageBtn');
-                if (editBtn) editBtn.classList.remove('hidden');
+                // 仅全身穿搭模式显示编辑按钮
+                if (currentAddMode === 'ootd') {
+                    const editBtn = document.getElementById('editImageBtn');
+                    if (editBtn) editBtn.classList.remove('hidden');
+                }
 
                 // 重置并启用手势缩放
                 resetImageTransform();
