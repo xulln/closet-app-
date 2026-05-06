@@ -25,7 +25,7 @@
         body { font-family: 'Inter', -apple-system, sans-serif; background: #fff; color: #1a1a1a; overflow-x: hidden; }
         .safe-top { padding-top: env(safe-area-inset-top); }
         .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
-        .tag { background: #f3f4f6; transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); cursor: pointer; border: 1px solid transparent; display: flex; align-items: center; justify-content: center; }
+        .tag { background: #f9fafb; transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); cursor: pointer; border: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: center; }
         .tag:active { transform: scale(0.96); }
         .tag-s { height: 38px; padding: 0 18px; border-radius: 1rem; white-space: nowrap; }
         .tag-l { min-height: 72px; border-radius: 1.5rem; flex-direction: column; padding: 12px; }
@@ -592,16 +592,16 @@
                 <h3 class="text-lg font-extrabold mb-2">欢迎使用 Closet</h3>
                 <p class="text-xs text-gray-500 mb-6">请选择你的性别，以便我们为你推荐合适的内容</p>
                 <div class="space-y-3 mb-6">
-                    <button onclick="selectWizardGender('女')" id="wizGenderF" class="w-full py-4 bg-gray-100 rounded-2xl text-sm font-bold active:scale-95 transition-transform">女</button>
-                    <button onclick="selectWizardGender('男')" id="wizGenderM" class="w-full py-4 bg-gray-100 rounded-2xl text-sm font-bold active:scale-95 transition-transform">男</button>
-                    <button onclick="selectWizardGender('不透露')" id="wizGenderN" class="w-full py-4 bg-gray-100 rounded-2xl text-sm font-bold active:scale-95 transition-transform">不透露</button>
+                    <button onclick="selectWizardGender('女')" id="wizGenderF" class="w-full py-4 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-bold active:scale-95 transition-transform">女</button>
+                    <button onclick="selectWizardGender('男')" id="wizGenderM" class="w-full py-4 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-bold active:scale-95 transition-transform">男</button>
+                    <button onclick="selectWizardGender('不透露')" id="wizGenderN" class="w-full py-4 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-bold active:scale-95 transition-transform">不透露</button>
                 </div>
                 <button id="wizardNextBtn1" onclick="nextWizardStep()" class="w-full py-4 bg-black text-white rounded-2xl text-sm font-bold active:scale-95 transition-transform opacity-30 pointer-events-none">下一步</button>
             </div>
             <!-- 步骤2: 偏好标签 -->
             <div id="wizardStep2" class="hidden">
                 <div class="flex items-center gap-3 mb-4">
-                    <button onclick="prevWizardStep()" class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center active:scale-95 transition-transform">
+                    <button onclick="prevWizardStep()" class="w-10 h-10 bg-gray-50 border border-gray-200 rounded-full flex items-center justify-center active:scale-95 transition-transform">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                     </button>
                     <h3 class="text-lg font-extrabold">偏好设置</h3>
@@ -612,7 +612,7 @@
                         <div id="wizStyles" class="flex flex-wrap gap-2"></div>
                         <div class="mt-2 flex gap-2">
                             <input type="text" id="wizCustomStyle" placeholder="自定义风格..." class="flex-1 py-2 px-4 rounded-xl text-sm font-semibold">
-                            <button onclick="addCustomPref('styles')" class="py-2 px-4 bg-gray-100 rounded-xl text-sm font-bold active:scale-95 transition-transform">添加</button>
+                            <button onclick="addCustomPref('styles')" class="py-2 px-4 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold active:scale-95 transition-transform">添加</button>
                         </div>
                     </div>
                     <div>
@@ -620,7 +620,7 @@
                         <div id="wizTemps" class="flex flex-wrap gap-2"></div>
                         <div class="mt-2 flex gap-2">
                             <input type="text" id="wizCustomTemp" placeholder="自定义温度..." class="flex-1 py-2 px-4 rounded-xl text-sm font-semibold">
-                            <button onclick="addCustomPref('temps')" class="py-2 px-4 bg-gray-100 rounded-xl text-sm font-bold active:scale-95 transition-transform">添加</button>
+                            <button onclick="addCustomPref('temps')" class="py-2 px-4 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold active:scale-95 transition-transform">添加</button>
                         </div>
                     </div>
                     <div>
@@ -628,7 +628,7 @@
                         <div id="wizScenes" class="flex flex-wrap gap-2"></div>
                         <div class="mt-2 flex gap-2">
                             <input type="text" id="wizCustomScene" placeholder="自定义场合..." class="flex-1 py-2 px-4 rounded-xl text-sm font-semibold">
-                            <button onclick="addCustomPref('scenes')" class="py-2 px-4 bg-gray-100 rounded-xl text-sm font-bold active:scale-95 transition-transform">添加</button>
+                            <button onclick="addCustomPref('scenes')" class="py-2 px-4 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold active:scale-95 transition-transform">添加</button>
                         </div>
                     </div>
                 </div>
@@ -2362,10 +2362,10 @@
             wizardGender = gender;
             document.querySelectorAll('[id^="wizGender"]').forEach(b => {
                 b.classList.remove('bg-black', 'text-white');
-                b.classList.add('bg-gray-100');
+                b.classList.add('bg-gray-50', 'border', 'border-gray-200');
             });
             const btn = document.getElementById('wizGender' + (gender === '女' ? 'F' : gender === '男' ? 'M' : 'N'));
-            if (btn) { btn.classList.remove('bg-gray-100'); btn.classList.add('bg-black', 'text-white'); }
+            if (btn) { btn.classList.remove('bg-gray-50', 'border', 'border-gray-200'); btn.classList.add('bg-black', 'text-white'); }
             const nextBtn = document.getElementById('wizardNextBtn1');
             nextBtn.classList.remove('opacity-30', 'pointer-events-none');
         }
