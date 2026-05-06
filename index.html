@@ -25,6 +25,7 @@
         body { font-family: 'Inter', -apple-system, sans-serif; background: #fff; color: #1a1a1a; overflow-x: hidden; }
         .safe-top { padding-top: env(safe-area-inset-top); }
         .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+        .checkered-bg { background-color: #f3f4f6; background-image: linear-gradient(45deg, #d1d5db 25%, transparent 25%), linear-gradient(-45deg, #d1d5db 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #d1d5db 75%), linear-gradient(-45deg, transparent 75%, #d1d5db 75%); background-size: 16px 16px; background-position: 0 0, 0 8px, 8px -8px, -8px 0px; }
         .tag { background: #f9fafb; transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); cursor: pointer; border: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: center; }
         .tag:active { transform: scale(0.96); }
         .tag-s { height: 38px; padding: 0 18px; border-radius: 1rem; white-space: nowrap; }
@@ -422,7 +423,7 @@
                             <span class="text-xs font-bold text-gray-400">点击上传照片</span>
                         </div>
                     </label>
-                    <div id="previewWrapper" class="hidden absolute inset-0 bg-gray-100">
+                    <div id="previewWrapper" class="hidden absolute inset-0 checkered-bg">
                         <img id="previewImg" class="w-full h-full" style="object-fit: cover;">
                         <button type="button" onclick="clearImage()" class="absolute top-2 right-2 w-8 h-8 bg-black/60 text-white rounded-full flex items-center justify-center text-lg font-bold z-10">×</button>
                     </div>
@@ -3075,22 +3076,29 @@
             const preview = document.getElementById('previewImg');
             let result = null;
 
-            btnText.textContent = '处理中…';
             btn.disabled = true;
 
             // 优先 AI（模型就绪才尝试），失败自动降级到白色阈值
             if (window.removeBackgroundSmart && window.aiModelReady) {
                 try {
+                    btnText.textContent = 'AI 识别中…';
                     result = await removeBackgroundSmart(aiInput);
                     console.log('AI background removed');
                 } catch (err) {
                     console.warn('AI bg failed, falling back to white threshold:', err.message);
                 }
+            } else if (window.aiModelLoading) {
+                btnText.textContent = '模型加载中…';
+                showToast('AI 模型尚未就绪，请稍后再试');
+                btn.disabled = false;
+                btnText.textContent = '移除背景';
+                return;
             }
 
             if (!result) {
                 try {
-                    result = await removeWhiteBackground(previewOriginalData || preview.src);
+                    btnText.textContent = '白色去底中…';
+                    result = await removeWhiteBackground(previewOriginalData || preview.src, 220);
                     console.log('White threshold background removed');
                 } catch (err) {
                     console.warn('White threshold also failed:', err.message);
@@ -3722,12 +3730,20 @@
 
         // 模型就绪标记
         window.aiModelReady = false;
+        window.aiModelLoading = false;
 
-        // 启动时预加载模型
-        preload({ model: MODEL, output: { format: 'image/png' } }).then(() => {
+        // 启动时预加载模型（15 秒超时）
+        window.aiModelLoading = true;
+        Promise.race([
+            preload({ model: MODEL, output: { format: 'image/png' } }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Model download timeout')), 15000))
+        ]).then(() => {
             window.aiModelReady = true;
+            window.aiModelLoading = false;
             console.log('AI background removal ready');
         }).catch(err => {
+            window.aiModelReady = false;
+            window.aiModelLoading = false;
             console.warn('AI model preload failed:', err.message);
         });
 
