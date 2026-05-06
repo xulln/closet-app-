@@ -3020,6 +3020,9 @@
                 // 压缩原图用于编辑（1200x1800，质量 85%）
                 const originalCompressed = await compressImage(img, 1200, 1800, 0.85);
 
+                // AI 去背景用中等尺寸（480x720，质量 65%），兼顾速度和质量
+                const aiInput = await compressImage(img, 480, 720, 0.65);
+
                 // 设置图片源
                 preview.src = compressedData;
                 preview.dataset.original = originalCompressed;
@@ -3059,18 +3062,38 @@
                 previewBgRemoved = null;
                 previewOriginalData = compressedData;
                 if (window.removeBackgroundSmart && currentAddMode !== 'ootd') {
-                    removeBackgroundSmart(compressedData).then(bgRemovedData => {
-                        // 更新预览为去背景版本
+                    // AI 去背景（重试一次 + 白底阈值兜底）
+                    const tryRemoveBg = async (retry = true) => {
+                        try {
+                            const result = await removeBackgroundSmart(aiInput);
+                            return result;
+                        } catch (err) {
+                            if (retry) {
+                                console.warn('AI bg removal failed, retrying...', err.message);
+                                return tryRemoveBg(false);
+                            }
+                            throw err;
+                        }
+                    };
+                    tryRemoveBg().then(bgRemovedData => {
                         preview.src = bgRemovedData;
                         previewBgRemoved = bgRemovedData;
-                        // 去背景完成后显示编辑按钮并重置状态
                         const editBtn = document.getElementById('editImageBtn');
                         if (editBtn) editBtn.classList.remove('hidden');
                         resetImageTransform();
-                        console.log('Background removed successfully');
-                    }).catch(err => {
-                        console.warn('Background removal failed, using original:', err);
-                        previewBgRemoved = null;
+                        console.log('AI background removed successfully');
+                    }).catch(async err => {
+                        console.warn('AI bg removal failed, falling back to white threshold:', err.message);
+                        try {
+                            const fallback = await removeWhiteBackground(compressedData);
+                            preview.src = fallback;
+                            previewBgRemoved = fallback;
+                        } catch (e) {
+                            previewBgRemoved = null;
+                        }
+                        const editBtn = document.getElementById('editImageBtn');
+                        if (editBtn) editBtn.classList.remove('hidden');
+                        resetImageTransform();
                     });
                 }
             } catch (err) {
