@@ -14,8 +14,8 @@
     <script type="importmap">
     {
       "imports": {
-        "@imgly/background-removal": "https://esm.sh/@imgly/background-removal@1.7.0/dist/index.mjs",
-        "onnxruntime-web": "https://esm.sh/onnxruntime-web@1.21.0/dist/ort.all.min.mjs"
+        "@imgly/background-removal": "https://registry.npmmirror.com/@imgly/background-removal/1.7.0/files/dist/index.mjs",
+        "onnxruntime-web": "https://registry.npmmirror.com/onnxruntime-web/1.21.0/files/dist/ort.all.min.mjs"
       }
     }
     </script>
@@ -3770,8 +3770,8 @@
         const imglyRemoveBackground = imglyBackgroundRemoval.default || imglyBackgroundRemoval.removeBackground || imglyBackgroundRemoval;
         const { preload } = imglyBackgroundRemoval;
 
-        // 配置 ONNX Runtime（尝试多个 CDN）
-        ort.env.wasm.wasmPaths = "https://esm.sh/onnxruntime-web@1.21.0/dist/";
+        // 配置 ONNX Runtime WASM 路径（阿里云镜像）
+        ort.env.wasm.wasmPaths = "https://registry.npmmirror.com/onnxruntime-web/1.21.0/files/dist/";
 
         const MODEL = 'isnet_quint8';
 
@@ -3779,18 +3779,32 @@
         window.aiModelReady = false;
         window.aiModelLoading = true;
 
-        // 启动时预加载模型（15 秒超时）
+        // 启动时预加载模型（120 秒超时，首次下载约需 40-60MB）
         try {
+            const progressEl = document.getElementById('bgRemovalProgress');
+            const loadingEl = document.getElementById('bgRemovalLoading');
             Promise.race([
-                preload({ model: MODEL, output: { format: 'image/png' } }),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Model download timeout')), 15000))
+                preload({
+                    model: MODEL,
+                    output: { format: 'image/png' },
+                    progress: (key, current, total) => {
+                        if (progressEl) {
+                            const pct = total ? Math.round(current / total * 100) : 0;
+                            progressEl.textContent = `下载模型 ${pct}% (${Math.round(current/1024/1024)}MB)`;
+                        }
+                        if (loadingEl) loadingEl.classList.remove('hidden');
+                    }
+                }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Model download timeout')), 120000))
             ]).then(() => {
                 window.aiModelReady = true;
                 window.aiModelLoading = false;
+                if (loadingEl) loadingEl.classList.add('hidden');
                 console.log('AI background removal ready');
             }).catch(err => {
                 window.aiModelReady = false;
                 window.aiModelLoading = false;
+                if (loadingEl) loadingEl.classList.add('hidden');
                 console.warn('AI model preload failed:', err.message);
             });
         } catch (err) {
