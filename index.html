@@ -388,21 +388,21 @@
         <div class="modal-box !p-6" onclick="event.stopPropagation()">
             <h3 class="text-center text-gray-400 text-xs font-black uppercase tracking-widest mb-6">添加</h3>
             <div class="flex gap-3">
-                <button onclick="openAdd('ootd')" class="flex-1 bg-gray-100 h-28 rounded-3xl flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform">
-                    <svg class="w-12 h-12" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <button onclick="openAdd('ootd')" class="flex-1 bg-gray-100 h-28 rounded-3xl flex flex-col items-center justify-center gap-3 active:scale-95 transition-transform">
+                    <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="24" cy="10" r="4"/>
                         <path d="M16 22 L32 22 L34 44 L14 44 Z"/>
                     </svg>
                     <span class="text-xs font-bold">全身穿搭</span>
                 </button>
-                <button onclick="openAdd('clothes')" class="flex-1 bg-gray-100 h-28 rounded-3xl flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform">
-                    <svg class="w-12 h-12" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <button onclick="openAdd('clothes')" class="flex-1 bg-gray-100 h-28 rounded-3xl flex flex-col items-center justify-center gap-3 active:scale-95 transition-transform">
+                    <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M16 8 L12 16 L18 18 L18 40 L30 40 L30 18 L36 16 L32 8 Q24 12 16 8Z"/>
                     </svg>
                     <span class="text-xs font-bold">衣服单品</span>
                 </button>
-                <button onclick="openAdd('acc')" class="flex-1 bg-gray-100 h-28 rounded-3xl flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform">
-                    <svg class="w-12 h-12" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <button onclick="openAdd('acc')" class="flex-1 bg-gray-100 h-28 rounded-3xl flex flex-col items-center justify-center gap-3 active:scale-95 transition-transform">
+                    <svg class="w-10 h-10" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 8 Q24 4 36 8"/>
                         <path d="M12 16 Q24 12 36 16"/>
                         <path d="M12 24 Q24 20 36 24"/>
@@ -2572,90 +2572,188 @@
 
             if (!container || !img) return;
 
-            // 双指缩放
+            // 移除旧事件监听器（如果存在）
+            if (container._gestureHandlers) {
+                container._gestureHandlers.forEach(h => {
+                    container.removeEventListener(h.type, h.fn, h.options);
+                });
+            }
+            container._gestureHandlers = [];
+
+            // 性能优化：使用 will-change
+            img.style.willChange = 'transform';
+
+            // 状态变量
             let initialScale = 1;
             let initialDistance = 0;
+            let rafId = null;
+            let velocityX = 0, velocityY = 0;
+            let lastX = 0, lastY = 0;
+            let lastTime = 0;
 
-            container.ontouchstart = function(e) {
-                // 未启用编辑时，不处理手势
+            // 使用 requestAnimationFrame 批量更新
+            function scheduleTransform() {
+                if (rafId) return;
+                rafId = requestAnimationFrame(() => {
+                    applyImageTransform();
+                    rafId = null;
+                });
+            }
+
+            // 惯性滑动
+            function applyMomentum() {
+                if (Math.abs(velocityX) < 0.1 && Math.abs(velocityY) < 0.1) return;
+
+                imgTransform.x += velocityX;
+                imgTransform.y += velocityY;
+                velocityX *= 0.92; // 摩擦系数
+                velocityY *= 0.92;
+
+                scheduleTransform();
+                requestAnimationFrame(applyMomentum);
+            }
+
+            // 触摸开始
+            const touchStart = (e) => {
                 if (!imgTransform.enabled) return;
+                e.preventDefault();
+
+                // 停止惯性
+                velocityX = velocityY = 0;
 
                 if (e.touches.length === 2) {
-                    // 双指缩放开始
                     initialDistance = Math.hypot(
                         e.touches[0].pageX - e.touches[1].pageX,
                         e.touches[0].pageY - e.touches[1].pageY
                     );
                     initialScale = imgTransform.scale;
                 } else if (e.touches.length === 1) {
-                    // 单指拖拽开始
                     imgTransform.isDragging = true;
-                    imgTransform.startX = e.touches[0].clientX - imgTransform.x;
-                    imgTransform.startY = e.touches[0].clientY - imgTransform.y;
+                    lastX = e.touches[0].clientX;
+                    lastY = e.touches[0].clientY;
+                    lastTime = Date.now();
+                    imgTransform.startX = lastX - imgTransform.x;
+                    imgTransform.startY = lastY - imgTransform.y;
                     img.style.cursor = 'grabbing';
                 }
             };
 
-            container.ontouchmove = function(e) {
+            // 触摸移动
+            const touchMove = (e) => {
+                if (!imgTransform.enabled) return;
                 e.preventDefault();
 
                 if (e.touches.length === 2) {
-                    // 双指缩放
                     const distance = Math.hypot(
                         e.touches[0].pageX - e.touches[1].pageX,
                         e.touches[0].pageY - e.touches[1].pageY
                     );
-                    imgTransform.scale = Math.max(0.5, Math.min(3, initialScale * (distance / initialDistance)));
-                    applyImageTransform();
+                    const scale = initialScale * (distance / initialDistance);
+                    // 使用 lerp 平滑缩放
+                    imgTransform.scale += (scale - imgTransform.scale) * 0.3;
+                    imgTransform.scale = Math.max(0.3, Math.min(4, imgTransform.scale));
+                    scheduleTransform();
                 } else if (e.touches.length === 1 && imgTransform.isDragging) {
-                    // 单指拖拽
-                    imgTransform.x = e.touches[0].clientX - imgTransform.startX;
-                    imgTransform.y = e.touches[0].clientY - imgTransform.startY;
-                    applyImageTransform();
+                    const x = e.touches[0].clientX;
+                    const y = e.touches[0].clientY;
+                    const now = Date.now();
+                    const dt = now - lastTime;
+
+                    // 计算速度用于惯性
+                    if (dt > 0) {
+                        velocityX = (x - lastX) / dt * 16;
+                        velocityY = (y - lastY) / dt * 16;
+                    }
+
+                    imgTransform.x = x - imgTransform.startX;
+                    imgTransform.y = y - imgTransform.startY;
+                    lastX = x;
+                    lastY = y;
+                    lastTime = now;
+                    scheduleTransform();
                 }
             };
 
-            container.ontouchend = function() {
+            // 触摸结束
+            const touchEnd = (e) => {
                 imgTransform.isDragging = false;
                 img.style.cursor = 'grab';
+                // 启动惯性滑动
+                if (Math.abs(velocityX) > 1 || Math.abs(velocityY) > 1) {
+                    applyMomentum();
+                }
             };
 
-            // 鼠标支持
-            img.onmousedown = function(e) {
-                // 未启用编辑时，不处理鼠标拖拽
+            // 滚轮缩放 - 添加平滑过渡
+            const wheel = (e) => {
                 if (!imgTransform.enabled) return;
+                e.preventDefault();
+
+                const delta = e.deltaY > 0 ? 0.92 : 1.08;
+                const targetScale = imgTransform.scale * delta;
+                imgTransform.scale = Math.max(0.3, Math.min(4, targetScale));
+                scheduleTransform();
+            };
+
+            // 注册事件（使用 passive: false 确保 preventDefault 生效）
+            const handlers = [
+                { type: 'touchstart', fn: touchStart, options: { passive: false } },
+                { type: 'touchmove', fn: touchMove, options: { passive: false } },
+                { type: 'touchend', fn: touchEnd, options: { passive: true } },
+                { type: 'wheel', fn: wheel, options: { passive: false } }
+            ];
+
+            handlers.forEach(h => {
+                container.addEventListener(h.type, h.fn, h.options);
+                container._gestureHandlers.push(h);
+            });
+
+            // 鼠标支持（桌面端）
+            let isMouseDown = false;
+            const mouseDown = (e) => {
+                if (!imgTransform.enabled) return;
+                isMouseDown = true;
                 imgTransform.isDragging = true;
-                imgTransform.startX = e.clientX - imgTransform.x;
-                imgTransform.startY = e.clientY - imgTransform.y;
+                lastX = e.clientX;
+                lastY = e.clientY;
+                imgTransform.startX = lastX - imgTransform.x;
+                imgTransform.startY = lastY - imgTransform.y;
                 img.style.cursor = 'grabbing';
             };
 
-            document.onmousemove = function(e) {
-                if (!imgTransform.isDragging || !imgTransform.enabled) return;
+            const mouseMove = (e) => {
+                if (!isMouseDown || !imgTransform.enabled) return;
                 e.preventDefault();
-                imgTransform.x = e.clientX - imgTransform.startX;
-                imgTransform.y = e.clientY - imgTransform.startY;
-                applyImageTransform();
+
+                const x = e.clientX;
+                const y = e.clientY;
+                imgTransform.x = x - imgTransform.startX;
+                imgTransform.y = y - imgTransform.startY;
+                scheduleTransform();
             };
 
-            document.onmouseup = function() {
+            const mouseUp = () => {
+                isMouseDown = false;
                 imgTransform.isDragging = false;
                 img.style.cursor = 'grab';
             };
 
-            // 滚轮缩放
-            container.onwheel = function(e) {
-                // 未启用编辑时，不处理滚轮
-                if (!imgTransform.enabled) return;
-                e.preventDefault();
-                const delta = e.deltaY > 0 ? 0.9 : 1.1;
-                imgTransform.scale = Math.max(0.5, Math.min(3, imgTransform.scale * delta));
-                applyImageTransform();
-            };
+            img.addEventListener('mousedown', mouseDown);
+            document.addEventListener('mousemove', mouseMove);
+            document.addEventListener('mouseup', mouseUp);
+
+            container._gestureHandlers.push(
+                { type: 'mousedown', fn: mouseDown, options: false },
+                { type: 'mousemove', fn: mouseMove, options: false },
+                { type: 'mouseup', fn: mouseUp, options: false }
+            );
         }
 
         function applyImageTransform() {
             const img = document.getElementById('previewImg');
+            if (!img) return;
+            // 使用 CSS transition 实现平滑变换
+            img.style.transition = imgTransform.isDragging ? 'none' : 'transform 0.15s ease-out';
             img.style.transform = `translate(${imgTransform.x}px, ${imgTransform.y}px) scale(${imgTransform.scale}) rotate(${imgTransform.rotation}deg)`;
         }
 
