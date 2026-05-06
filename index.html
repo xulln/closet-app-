@@ -3061,45 +3061,39 @@
             const btn = document.getElementById('removeBgBtn');
             const btnText = document.getElementById('removeBgBtnText');
             const preview = document.getElementById('previewImg');
+            let result = null;
 
-            // 加载态
             btnText.textContent = '处理中…';
             btn.disabled = true;
 
-            try {
-                if (window.removeBackgroundSmart) {
-                    // AI 去背景（重试一次）
-                    const tryRemove = async (retry = true) => {
-                        try {
-                            return await removeBackgroundSmart(aiInput);
-                        } catch (err) {
-                            if (retry) {
-                                console.warn('AI bg failed, retrying...', err.message);
-                                return tryRemove(false);
-                            }
-                            throw err;
-                        }
-                    };
-                    const result = await tryRemove();
-                    preview.src = result;
-                    previewBgRemoved = result;
+            // 优先 AI，失败自动降级到白色阈值
+            if (window.removeBackgroundSmart) {
+                try {
+                    result = await removeBackgroundSmart(aiInput);
                     console.log('AI background removed');
-                } else {
-                    // AI 不可用，白色阈值
-                    const result = await removeWhiteBackground(previewOriginalData || preview.src);
-                    preview.src = result;
-                    previewBgRemoved = result;
-                    console.log('White threshold background removed');
+                } catch (err) {
+                    console.warn('AI bg failed, falling back to white threshold:', err.message);
                 }
-                btnText.textContent = '已移除背景';
-                btn.classList.add('opacity-50');
-                showToast('背景已移除');
-            } catch (err) {
-                console.warn('Background removal failed:', err.message);
-                btnText.textContent = '移除背景';
-                btn.disabled = false;
-                showToast('去背景失败，请重试');
             }
+
+            if (!result) {
+                try {
+                    result = await removeWhiteBackground(previewOriginalData || preview.src);
+                    console.log('White threshold background removed');
+                } catch (err) {
+                    console.warn('White threshold also failed:', err.message);
+                    btnText.textContent = '移除背景';
+                    btn.disabled = false;
+                    showToast('去背景失败，请重试');
+                    return;
+                }
+            }
+
+            preview.src = result;
+            previewBgRemoved = result;
+            btnText.textContent = '已移除背景';
+            btn.classList.add('opacity-50');
+            showToast('背景已移除');
         }
 
         function getTransformedImageData() {
