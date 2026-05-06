@@ -29,7 +29,7 @@
         .tag:active { transform: scale(0.96); }
         .tag-s { height: 38px; padding: 0 18px; border-radius: 1rem; white-space: nowrap; }
         .tag-l { min-height: 72px; border-radius: 1.5rem; flex-direction: column; padding: 12px; }
-        .tag.selected { background: rgba(229,231,235,0.6); backdrop-filter: blur(12px); transform: scale(1.05); border-color: rgba(0,0,0,0.05); box-shadow: 0 8px 20px -6px rgba(0,0,0,0.08); }
+        .tag.selected { background: #d1d5db; transform: scale(1.05); border-color: rgba(0,0,0,0.08); box-shadow: 0 8px 20px -6px rgba(0,0,0,0.08); }
         .tag-t { font-weight: 700; font-size: 12px; color: #6b7280; }
         .tag.selected .tag-t { color: #111827; }
         .tag-c { font-size: 10px; font-weight: 800; margin-top: 4px; color: #9ca3af; }
@@ -191,6 +191,9 @@
             <div class="flex items-center justify-between h-16">
                 <h1 class="text-2xl font-extrabold tracking-tighter">Closet</h1>
                 <div class="flex items-center gap-2">
+                    <div class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center cursor-pointer" onclick="openSettings()">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                    </div>
                     <div class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center cursor-pointer relative" onclick="showStorageInfo()">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
                         <div id="storageIndicator" class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500 hidden"></div>
@@ -243,30 +246,16 @@
                     <!-- 风格标签（默认隐藏） -->
                     <div id="filter-style" class="hidden flex flex-wrap gap-2 mb-3">
                         <span class="text-xs text-gray-400 font-bold w-full mb-1">选择风格</span>
-                        <div onclick="toggleFilter('style', '休闲')" class="tag tag-s" data-filter-type="style" data-filter-value="休闲"><span class="tag-t">休闲</span></div>
-                        <div onclick="toggleFilter('style', '气质')" class="tag tag-s" data-filter-type="style" data-filter-value="气质"><span class="tag-t">气质</span></div>
-                        <div onclick="toggleFilter('style', '可爱')" class="tag tag-s" data-filter-type="style" data-filter-value="可爱"><span class="tag-t">可爱</span></div>
-                        <div onclick="toggleFilter('style', '韩系')" class="tag tag-s" data-filter-type="style" data-filter-value="韩系"><span class="tag-t">韩系</span></div>
-                        <div onclick="toggleFilter('style', '复古')" class="tag tag-s" data-filter-type="style" data-filter-value="复古"><span class="tag-t">复古</span></div>
                     </div>
 
                     <!-- 温度标签（默认隐藏） -->
                     <div id="filter-temp" class="hidden flex flex-wrap gap-2 mb-3">
                         <span class="text-xs text-gray-400 font-bold w-full mb-1">选择温度</span>
-                        <div onclick="toggleFilter('temp', '极热 35℃+')" class="tag tag-s" data-filter-type="temp" data-filter-value="极热 35℃+"><span class="tag-t">极热</span></div>
-                        <div onclick="toggleFilter('temp', '热 28-34℃')" class="tag tag-s" data-filter-type="temp" data-filter-value="热 28-34℃"><span class="tag-t">热</span></div>
-                        <div onclick="toggleFilter('temp', '舒适 20-27℃')" class="tag tag-s" data-filter-type="temp" data-filter-value="舒适 20-27℃"><span class="tag-t">舒适</span></div>
-                        <div onclick="toggleFilter('temp', '凉 13-19℃')" class="tag tag-s" data-filter-type="temp" data-filter-value="凉 13-19℃"><span class="tag-t">凉</span></div>
-                        <div onclick="toggleFilter('temp', '冷 10-12℃')" class="tag tag-s" data-filter-type="temp" data-filter-value="冷 10-12℃"><span class="tag-t">冷</span></div>
                     </div>
 
                     <!-- 场合标签（默认隐藏） -->
                     <div id="filter-scene" class="hidden flex flex-wrap gap-2">
                         <span class="text-xs text-gray-400 font-bold w-full mb-1">选择场合</span>
-                        <div onclick="toggleFilter('scene', '通勤')" class="tag tag-s" data-filter-type="scene" data-filter-value="通勤"><span class="tag-t">通勤</span></div>
-                        <div onclick="toggleFilter('scene', '出片')" class="tag tag-s" data-filter-type="scene" data-filter-value="出片"><span class="tag-t">出片</span></div>
-                        <div onclick="toggleFilter('scene', '户外')" class="tag tag-s" data-filter-type="scene" data-filter-value="户外"><span class="tag-t">户外</span></div>
-                        <div onclick="toggleFilter('scene', '出游')" class="tag tag-s" data-filter-type="scene" data-filter-value="出游"><span class="tag-t">出游</span></div>
                     </div>
                 </div>
                 <div id="ootdGrid" class="grid grid-cols-2 gap-4"></div>
@@ -600,6 +589,55 @@
         </div>
     </div>
 
+    <!-- 偏好设置向导弹窗 -->
+    <div id="wizardModal" class="modal" onclick="">
+        <div class="modal-box !p-6" onclick="event.stopPropagation()">
+            <!-- 步骤1: 选择性别 -->
+            <div id="wizardStep1">
+                <h3 class="text-lg font-extrabold mb-2">欢迎使用 Closet</h3>
+                <p class="text-xs text-gray-500 mb-6">请选择你的性别，以便我们为你推荐合适的内容</p>
+                <div class="space-y-3 mb-6">
+                    <button onclick="selectWizardGender('女')" id="wizGenderF" class="w-full py-4 bg-gray-100 rounded-2xl text-sm font-bold active:scale-95 transition-transform">女</button>
+                    <button onclick="selectWizardGender('男')" id="wizGenderM" class="w-full py-4 bg-gray-100 rounded-2xl text-sm font-bold active:scale-95 transition-transform">男</button>
+                    <button onclick="selectWizardGender('不透露')" id="wizGenderN" class="w-full py-4 bg-gray-100 rounded-2xl text-sm font-bold active:scale-95 transition-transform">不透露</button>
+                </div>
+                <button id="wizardNextBtn1" onclick="nextWizardStep()" class="w-full py-4 bg-black text-white rounded-2xl text-sm font-bold active:scale-95 transition-transform opacity-30 pointer-events-none">下一步</button>
+            </div>
+            <!-- 步骤2: 偏好标签 -->
+            <div id="wizardStep2" class="hidden">
+                <div class="flex items-center gap-3 mb-4">
+                    <button onclick="prevWizardStep()" class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center active:scale-95 transition-transform">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                    </button>
+                    <h3 class="text-lg font-extrabold">偏好设置</h3>
+                </div>
+                <div class="space-y-5">
+                    <div>
+                        <label class="text-xs font-black uppercase tracking-widest text-gray-400 block mb-3">风格偏好（多选）</label>
+                        <div id="wizStyles" class="flex flex-wrap gap-2"></div>
+                        <div class="mt-2 flex gap-2">
+                            <input type="text" id="wizCustomStyle" placeholder="自定义风格..." class="flex-1 py-2 px-4 rounded-xl text-sm font-semibold">
+                            <button onclick="addCustomPref('styles')" class="py-2 px-4 bg-gray-100 rounded-xl text-sm font-bold active:scale-95 transition-transform">添加</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-xs font-black uppercase tracking-widest text-gray-400 block mb-3">适用温度（多选）</label>
+                        <div id="wizTemps" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    <div>
+                        <label class="text-xs font-black uppercase tracking-widest text-gray-400 block mb-3">适用场合（多选）</label>
+                        <div id="wizScenes" class="flex flex-wrap gap-2"></div>
+                        <div class="mt-2 flex gap-2">
+                            <input type="text" id="wizCustomScene" placeholder="自定义场合..." class="flex-1 py-2 px-4 rounded-xl text-sm font-semibold">
+                            <button onclick="addCustomPref('scenes')" class="py-2 px-4 bg-gray-100 rounded-xl text-sm font-bold active:scale-95 transition-transform">添加</button>
+                        </div>
+                    </div>
+                </div>
+                <button onclick="savePreferences()" class="w-full mt-6 py-4 bg-black text-white rounded-2xl text-sm font-bold active:scale-95 transition-transform">完成设置</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 底部添加按钮 -->
     <div id="addBtnContainer" class="fixed bottom-8 left-0 right-0 flex justify-center z-50 pointer-events-none transition-opacity duration-300">
         <button onclick="openChoice()" class="w-14 h-14 bg-black text-white rounded-full shadow-2xl flex items-center justify-center pointer-events-auto active:scale-90 transition-transform">
@@ -610,7 +648,7 @@
     <script>
         // 数据存储 - IndexedDB
         const DB_NAME = 'ClosetDB';
-        const DB_VERSION = 2;
+        const DB_VERSION = 3;
         let db = null;
 
         // 兼容：localStorage keys（用于数据迁移）
@@ -626,6 +664,26 @@
         let previewOriginalData = null; // 去背景前的原始压缩图（全身类型用）
         let aiInput = null; // AI 去背景用的小尺寸图
 
+        // 用户偏好
+        let userPrefs = { gender: '', styles: [], temps: [], scenes: [], setupDone: false };
+
+        // 性别对应的风格/场合默认选项
+        const genderDefaults = {
+            '女': {
+                styles: ['简约','休闲','通勤','复古','法式','韩系','街头','甜美'],
+                scenes: ['日常','通勤','约会','聚会','运动','旅行','正式场合']
+            },
+            '男': {
+                styles: ['简约','休闲','通勤','运动','街头','复古','商务'],
+                scenes: ['日常','通勤','运动','聚会','旅行','正式场合']
+            },
+            '不透露': {
+                styles: ['简约','休闲','通勤','复古','运动','街头'],
+                scenes: ['日常','通勤','运动','聚会','旅行']
+            }
+        };
+        const tempOptions = ['0°以下','0-10°','10-20°','20-30°','30°以上'];
+
         const config = {
             clothes: { types: ['全身','上衣','裤子','半身裙','外套','连衣裙','套装','鞋子'], icon: '👔' },
             acc: { types: ['包包','帽子','首饰','眼镜','腰带','发饰','其他'], icon: '👜' },
@@ -638,10 +696,14 @@
         async function init() {
             await loadData();
             fillSelects();
+            renderFilterTags();
             render();
             setupSW();
             initTouchDrag();
             await calculateStorageStats();
+            if (!userPrefs.setupDone) {
+                setTimeout(() => document.getElementById('wizardModal').classList.add('show'), 500);
+            }
         }
 
         // 滚动时隐藏+按钮，停止时显示
@@ -709,6 +771,10 @@
                     if (!database.objectStoreNames.contains('outfitDrafts')) {
                         database.createObjectStore('outfitDrafts', { keyPath: 'id' });
                     }
+                    // 存储用户偏好
+                    if (!database.objectStoreNames.contains('preferences')) {
+                        database.createObjectStore('preferences', { keyPath: 'id' });
+                    }
                 };
             });
         }
@@ -726,6 +792,10 @@
                 ootdOrder = await getAllFromStore('order') || {};
                 outfits = await getAllItemsFromStore('outfits') || [];
                 outfitDrafts = await getAllItemsFromStore('outfitDrafts') || [];
+
+                // 加载用户偏好
+                const prefs = await getFromStore('preferences', 'userPrefs');
+                if (prefs) { userPrefs = prefs; }
 
                 // 如果没有数据，尝试从 localStorage 迁移
                 if (items.length === 0) {
@@ -927,6 +997,17 @@
                 const request = store.put({ id, data });
 
                 request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // 从 store 读取单条记录
+        function getFromStore(storeName, id) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(storeName, 'readonly');
+                const store = transaction.objectStore(storeName);
+                const request = store.get(id);
+                request.onsuccess = () => resolve(request.result ? request.result.data : null);
                 request.onerror = () => reject(request.error);
             });
         }
@@ -1960,10 +2041,11 @@
 
         // 按维度分组排序（dimension 模式用）
         function sortItemsByDimension(items, dimension) {
-            const configOrder = config[dimension]; // 标签顺序配置
+            const prefKey = dimension === 'style' ? 'styles' : dimension === 'temp' ? 'temps' : 'scenes';
+            const order = (userPrefs[prefKey] && userPrefs[prefKey].length) ? userPrefs[prefKey] : config[dimension];
             return items.sort((a, b) => {
-                const indexA = configOrder.indexOf(a[dimension]);
-                const indexB = configOrder.indexOf(b[dimension]);
+                const indexA = order.indexOf(a[dimension]);
+                const indexB = order.indexOf(b[dimension]);
                 return indexA - indexB;
             });
         }
@@ -2253,6 +2335,117 @@
         }
         function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
+        // 偏好设置向导
+        let wizardGender = '';
+        let wizardSelectedPrefs = { styles: [], temps: [], scenes: [] };
+
+        function openSettings() {
+            wizardGender = userPrefs.gender || '';
+            wizardSelectedPrefs = {
+                styles: [...(userPrefs.styles || [])],
+                temps: [...(userPrefs.temps || [])],
+                scenes: [...(userPrefs.scenes || [])]
+            };
+            if (wizardGender) {
+                selectWizardGender(wizardGender);
+                renderPrefChips();
+                document.getElementById('wizardStep1').classList.add('hidden');
+                document.getElementById('wizardStep2').classList.remove('hidden');
+            } else {
+                document.getElementById('wizardStep1').classList.remove('hidden');
+                document.getElementById('wizardStep2').classList.add('hidden');
+                document.getElementById('wizardNextBtn1').classList.add('opacity-30', 'pointer-events-none');
+            }
+            document.getElementById('wizardModal').classList.add('show');
+        }
+
+        function selectWizardGender(gender) {
+            wizardGender = gender;
+            document.querySelectorAll('[id^="wizGender"]').forEach(b => {
+                b.classList.remove('bg-black', 'text-white');
+                b.classList.add('bg-gray-100');
+            });
+            const btn = document.getElementById('wizGender' + (gender === '女' ? 'F' : gender === '男' ? 'M' : 'N'));
+            if (btn) { btn.classList.remove('bg-gray-100'); btn.classList.add('bg-black', 'text-white'); }
+            const nextBtn = document.getElementById('wizardNextBtn1');
+            nextBtn.classList.remove('opacity-30', 'pointer-events-none');
+        }
+
+        function nextWizardStep() {
+            if (!wizardGender) return;
+            const defs = genderDefaults[wizardGender] || genderDefaults['不透露'];
+            wizardSelectedPrefs = {
+                styles: [],
+                temps: [],
+                scenes: []
+            };
+            renderPrefChips();
+            document.getElementById('wizardStep1').classList.add('hidden');
+            document.getElementById('wizardStep2').classList.remove('hidden');
+        }
+
+        function prevWizardStep() {
+            document.getElementById('wizardStep1').classList.remove('hidden');
+            document.getElementById('wizardStep2').classList.add('hidden');
+        }
+
+        function renderPrefChips() {
+            ['styles', 'temps', 'scenes'].forEach(type => {
+                const container = document.getElementById('wiz' + type.charAt(0).toUpperCase() + type.slice(1));
+                const defaultOpts = type === 'temps' ? [...tempOptions] :
+                    [...(genderDefaults[wizardGender] || genderDefaults['不透露'])[type]];
+                // 合并自定义值（不在默认列表中的）
+                wizardSelectedPrefs[type].forEach(v => {
+                    if (!defaultOpts.includes(v)) defaultOpts.push(v);
+                });
+                container.innerHTML = defaultOpts.map(v => {
+                    const selected = wizardSelectedPrefs[type].includes(v);
+                    return `<button onclick="togglePrefChip('${type}','${v.replace(/'/g, "\\'")}')" class="tag tag-s ${selected ? 'selected' : ''}">${v}</button>`;
+                }).join('');
+            });
+        }
+
+        function togglePrefChip(type, value) {
+            const idx = wizardSelectedPrefs[type].indexOf(value);
+            if (idx > -1) {
+                wizardSelectedPrefs[type].splice(idx, 1);
+            } else {
+                wizardSelectedPrefs[type].push(value);
+            }
+            renderPrefChips();
+        }
+
+        function addCustomPref(type) {
+            const input = document.getElementById(type === 'styles' ? 'wizCustomStyle' : 'wizCustomScene');
+            const val = input.value.trim();
+            if (!val) return;
+            if (!wizardSelectedPrefs[type].includes(val)) {
+                wizardSelectedPrefs[type].push(val);
+            }
+            input.value = '';
+            renderPrefChips();
+        }
+
+        async function savePreferences() {
+            userPrefs.gender = wizardGender;
+            userPrefs.styles = [...wizardSelectedPrefs.styles];
+            userPrefs.temps = [...wizardSelectedPrefs.temps];
+            userPrefs.scenes = [...wizardSelectedPrefs.scenes];
+            userPrefs.setupDone = true;
+            await savePrefsToDB();
+            fillSelects();
+            renderFilterTags();
+            closeModal('wizardModal');
+            showToast('偏好已保存');
+        }
+
+        async function savePrefsToDB() {
+            const transaction = db.transaction('preferences', 'readwrite');
+            const store = transaction.objectStore('preferences');
+            store.put({ id: 'userPrefs', data: { ...userPrefs } });
+            return new Promise(r => { transaction.oncomplete = r; });
+        }
+
         let currentAddMode = '';
         function openAdd(mode) {
             currentAddMode = mode;
@@ -2369,9 +2562,31 @@
 
         // 表单逻辑
         function fillSelects() {
-            document.getElementById('itemStyle').innerHTML = '<option value="">选择风格</option>' + config.style.map(s => `<option value="${s}">${s}</option>`).join('');
-            document.getElementById('itemTemp').innerHTML = '<option value="">适穿温度</option>' + config.temp.map(t => `<option value="${t}">${t}</option>`).join('');
-            document.getElementById('itemScene').innerHTML = '<option value="">适用场合</option>' + config.scene.map(s => `<option value="${s}">${s}</option>`).join('');
+            const styles = userPrefs.styles.length ? userPrefs.styles : config.style;
+            const temps = userPrefs.temps.length ? userPrefs.temps : config.temp;
+            const scenes = userPrefs.scenes.length ? userPrefs.scenes : config.scene;
+            document.getElementById('itemStyle').innerHTML = '<option value="">选择风格</option>' + styles.map(s => `<option value="${s}">${s}</option>`).join('');
+            document.getElementById('itemTemp').innerHTML = '<option value="">适穿温度</option>' + temps.map(t => `<option value="${t}">${t}</option>`).join('');
+            document.getElementById('itemScene').innerHTML = '<option value="">适用场合</option>' + scenes.map(s => `<option value="${s}">${s}</option>`).join('');
+        }
+
+        function renderFilterTags() {
+            const styles = userPrefs.styles.length ? userPrefs.styles : config.style;
+            const temps = userPrefs.temps.length ? userPrefs.temps : config.temp;
+            const scenes = userPrefs.scenes.length ? userPrefs.scenes : config.scene;
+
+            function tagHTML(type, value) {
+                const label = type === 'temp' ? value.split(' ')[0] : value;
+                return `<div onclick="toggleFilter('${type}','${value.replace(/'/g, "\\'")}')" class="tag tag-s" data-filter-type="${type}" data-filter-value="${value.replace(/"/g, '&quot;')}"><span class="tag-t">${label}</span></div>`;
+            }
+
+            ['filter-style','filter-temp','filter-scene'].forEach(id => {
+                document.getElementById(id).querySelectorAll('[data-filter-type]').forEach(el => el.remove());
+            });
+
+            styles.forEach(v => document.getElementById('filter-style').insertAdjacentHTML('beforeend', tagHTML('style', v)));
+            temps.forEach(v => document.getElementById('filter-temp').insertAdjacentHTML('beforeend', tagHTML('temp', v)));
+            scenes.forEach(v => document.getElementById('filter-scene').insertAdjacentHTML('beforeend', tagHTML('scene', v)));
         }
 
         function onTypeChange() {
