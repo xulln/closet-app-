@@ -14,8 +14,8 @@
     <script type="importmap">
     {
       "imports": {
-        "@imgly/background-removal": "https://unpkg.com/@imgly/background-removal@1.7.0/dist/index.mjs",
-        "onnxruntime-web": "https://unpkg.com/onnxruntime-web@1.21.0/dist/ort.all.min.mjs"
+        "@imgly/background-removal": "https://esm.sh/@imgly/background-removal@1.7.0/dist/index.mjs",
+        "onnxruntime-web": "https://esm.sh/onnxruntime-web@1.21.0/dist/ort.all.min.mjs"
       }
     }
     </script>
@@ -3703,7 +3703,7 @@
         const { preload } = imglyBackgroundRemoval;
 
         // 配置 ONNX Runtime（尝试多个 CDN）
-        ort.env.wasm.wasmPaths = "https://unpkg.com/onnxruntime-web@1.21.0/dist/";
+        ort.env.wasm.wasmPaths = "https://esm.sh/onnxruntime-web@1.21.0/dist/";
 
         const MODEL = 'isnet_quint8';
 
