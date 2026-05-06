@@ -459,6 +459,16 @@
                     <span id="editImageBtnText">编辑图片</span>
                 </button>
 
+                <!-- 移除背景按钮（默认隐藏，上传后显示，仅衣服/配饰模式）-->
+                <button type="button" id="removeBgBtn" onclick="removeBackgroundManual()" class="w-full py-3 bg-gray-100 rounded-2xl text-sm font-bold text-gray-600 active:scale-95 transition-transform hidden flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/><circle cx="15.5" cy="15.5" r="1.5"/>
+                        <path d="M21 15v1a2 2 0 01-2 2H5a2 2 0 01-2-2v-1"/><line x1="12" y1="11" x2="12" y2="17"/>
+                    </svg>
+                    <span id="removeBgBtnText">移除背景</span>
+                </button>
+
                 <!-- 旋转控制（编辑模式下显示）-->
                 <div id="rotateControl" class="hidden flex items-center gap-3">
                     <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
@@ -614,6 +624,7 @@
         let items = [], imgs = {}, originalImgs = {}, imgTransforms = {}, ootdOrder = {}, outfits = [], outfitDrafts = [];
         let previewBgRemoved = null; // 智能去背景结果
         let previewOriginalData = null; // 去背景前的原始压缩图（全身类型用）
+        let aiInput = null; // AI 去背景用的小尺寸图
 
         const config = {
             clothes: { types: ['全身','上衣','裤子','半身裙','外套','连衣裙','套装','鞋子'], icon: '👔' },
@@ -2321,6 +2332,16 @@
                 // 显示编辑按钮
                 const editBtn = document.getElementById('editImageBtn');
                 if (editBtn) editBtn.classList.remove('hidden');
+                // 衣服/配饰模式显示移除背景按钮
+                if (currentAddMode !== 'ootd') {
+                    const removeBgBtn = document.getElementById('removeBgBtn');
+                    if (removeBgBtn) {
+                        removeBgBtn.classList.remove('hidden');
+                        removeBgBtn.classList.remove('opacity-50');
+                        removeBgBtn.disabled = false;
+                        document.getElementById('removeBgBtnText').textContent = '移除背景';
+                    }
+                }
 
                 // 恢复之前保存的裁剪参数（如果有）
                 if(imgTransforms[id]) {
@@ -2424,6 +2445,14 @@
                 editBtn.innerHTML = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg><span>编辑图片</span>';
                 editBtn.onclick = enableImageEdit;
             }
+            // 隐藏移除背景按钮
+            const removeBgBtn = document.getElementById('removeBgBtn');
+            if (removeBgBtn) {
+                removeBgBtn.classList.add('hidden');
+                removeBgBtn.classList.remove('opacity-50');
+                removeBgBtn.disabled = false;
+                document.getElementById('removeBgBtnText').textContent = '移除背景';
+            }
 
             // 隐藏裁剪框
             const cropOverlay = document.getElementById('cropOverlay');
@@ -2435,6 +2464,7 @@
             // 清空智能去背景结果
             previewBgRemoved = null;
             previewOriginalData = null;
+            aiInput = null;
 
             // 清空文件输入
             fileInput.value = '';
@@ -2811,6 +2841,52 @@
             applyImageTransform();
         }
 
+        // 手动触发去背景
+        async function removeBackgroundManual() {
+            const btn = document.getElementById('removeBgBtn');
+            const btnText = document.getElementById('removeBgBtnText');
+            const preview = document.getElementById('previewImg');
+
+            // 加载态
+            btnText.textContent = '处理中…';
+            btn.disabled = true;
+
+            try {
+                if (window.removeBackgroundSmart) {
+                    // AI 去背景（重试一次）
+                    const tryRemove = async (retry = true) => {
+                        try {
+                            return await removeBackgroundSmart(aiInput);
+                        } catch (err) {
+                            if (retry) {
+                                console.warn('AI bg failed, retrying...', err.message);
+                                return tryRemove(false);
+                            }
+                            throw err;
+                        }
+                    };
+                    const result = await tryRemove();
+                    preview.src = result;
+                    previewBgRemoved = result;
+                    console.log('AI background removed');
+                } else {
+                    // AI 不可用，白色阈值
+                    const result = await removeWhiteBackground(previewOriginalData || preview.src);
+                    preview.src = result;
+                    previewBgRemoved = result;
+                    console.log('White threshold background removed');
+                }
+                btnText.textContent = '已移除背景';
+                btn.classList.add('opacity-50');
+                showToast('背景已移除');
+            } catch (err) {
+                console.warn('Background removal failed:', err.message);
+                btnText.textContent = '移除背景';
+                btn.disabled = false;
+                showToast('去背景失败，请重试');
+            }
+        }
+
         function getTransformedImageData() {
             const img = document.getElementById('previewImg');
             const container = document.getElementById('previewWrapper');
@@ -3021,7 +3097,7 @@
                 const originalCompressed = await compressImage(img, 1200, 1800, 0.85);
 
                 // AI 去背景用中等尺寸（480x720，质量 65%），兼顾速度和质量
-                const aiInput = await compressImage(img, 480, 720, 0.65);
+                aiInput = await compressImage(img, 480, 720, 0.65);
 
                 // 设置图片源
                 preview.src = compressedData;
@@ -3058,57 +3134,20 @@
 
                 console.log('preview updated with compressed image');
 
-                // 去背景
+                // 初始化去背景状态（用户手动触发）
                 previewBgRemoved = null;
                 previewOriginalData = compressedData;
+                // 衣服/配饰模式：显示移除背景按钮和编辑图片按钮
                 if (currentAddMode !== 'ootd') {
-                    if (window.removeBackgroundSmart) {
-                        // AI 去背景（重试一次 + 白底阈值兜底）
-                        const tryRemoveBg = async (retry = true) => {
-                            try {
-                                const result = await removeBackgroundSmart(aiInput);
-                                return result;
-                            } catch (err) {
-                                if (retry) {
-                                    console.warn('AI bg removal failed, retrying...', err.message);
-                                    return tryRemoveBg(false);
-                                }
-                                throw err;
-                            }
-                        };
-                        tryRemoveBg().then(bgRemovedData => {
-                            preview.src = bgRemovedData;
-                            previewBgRemoved = bgRemovedData;
-                            const editBtn = document.getElementById('editImageBtn');
-                            if (editBtn) editBtn.classList.remove('hidden');
-                            resetImageTransform();
-                            console.log('AI background removed successfully');
-                        }).catch(async err => {
-                            console.warn('AI bg failed, using white threshold:', err.message);
-                            try {
-                                const fallback = await removeWhiteBackground(compressedData);
-                                preview.src = fallback;
-                                previewBgRemoved = fallback;
-                            } catch (e) {
-                                previewBgRemoved = null;
-                            }
-                            const editBtn = document.getElementById('editImageBtn');
-                            if (editBtn) editBtn.classList.remove('hidden');
-                            resetImageTransform();
-                        });
-                    } else {
-                        // AI 不可用，直接用白色阈值去背景
-                        console.log('AI not available, using white threshold');
-                        removeWhiteBackground(compressedData).then(bgRemoved => {
-                            preview.src = bgRemoved;
-                            previewBgRemoved = bgRemoved;
-                            const editBtn = document.getElementById('editImageBtn');
-                            if (editBtn) editBtn.classList.remove('hidden');
-                            resetImageTransform();
-                        }).catch(() => {
-                            previewBgRemoved = null;
-                        });
+                    const removeBgBtn = document.getElementById('removeBgBtn');
+                    if (removeBgBtn) {
+                        removeBgBtn.classList.remove('hidden');
+                        document.getElementById('removeBgBtnText').textContent = '移除背景';
+                        removeBgBtn.disabled = false;
                     }
+                    const editBtn = document.getElementById('editImageBtn');
+                    if (editBtn) editBtn.classList.remove('hidden');
+                    resetImageTransform();
                 }
             } catch (err) {
                 console.error('图片处理失败:', err);
