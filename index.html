@@ -2417,6 +2417,13 @@
             const editBtn = document.getElementById('editImageBtn');
             if (editBtn) editBtn.classList.add('hidden');
 
+            // 隐藏裁剪框
+            const cropOverlay = document.getElementById('cropOverlay');
+            if (cropOverlay) cropOverlay.classList.add('hidden');
+
+            // 禁用编辑模式
+            imgTransform.enabled = false;
+
             // 清空智能去背景结果
             previewBgRemoved = null;
             previewOriginalData = null;
