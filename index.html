@@ -428,12 +428,25 @@
                         <span class="text-sm font-bold text-black">AI 识别中…</span>
                         <span id="bgRemovalProgress" class="text-xs text-gray-500 mt-1"></span>
                     </div>
+                    <div id="cropOverlay" class="hidden absolute border-2 border-white" style="z-index:15; pointer-events:auto; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);">
+                        <div class="absolute -top-1 -left-1 w-3 h-3 bg-white rounded-full" style="cursor:nw-resize;"></div>
+                        <div class="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full" style="cursor:ne-resize;"></div>
+                        <div class="absolute -bottom-1 -left-1 w-3 h-3 bg-white rounded-full" style="cursor:sw-resize;"></div>
+                        <div class="absolute -bottom-1 -right-1 w-3 h-3 bg-white rounded-full" style="cursor:se-resize;"></div>
+                    </div>
                 </div>
 
                 <!-- 编辑图片按钮（默认隐藏，上传后显示）-->
                 <button type="button" id="editImageBtn" onclick="enableImageEdit()" class="w-full py-3 bg-gray-100 rounded-2xl text-sm font-bold text-gray-600 active:scale-95 transition-transform hidden">
                     ✏️ 编辑图片
                 </button>
+
+                <!-- 旋转控制（编辑模式下显示）-->
+                <div id="rotateControl" class="hidden flex items-center gap-3">
+                    <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    <input type="range" id="rotateSlider" min="-45" max="45" value="0" step="0.5" oninput="setRotation(this.value)" class="flex-1 accent-black">
+                    <button type="button" onclick="setRotation(0)" class="text-xs font-bold text-gray-500 bg-gray-100 px-3 py-1 rounded-full flex-shrink-0 active:scale-95 transition-transform">复位</button>
+                </div>
 
                 <div>
                     <label class="text-xs font-black uppercase tracking-widest text-gray-400 block mb-2">分类</label>
@@ -582,6 +595,7 @@
         // 内存中的数据缓存
         let items = [], imgs = {}, originalImgs = {}, imgTransforms = {}, ootdOrder = {}, outfits = [], outfitDrafts = [];
         let previewBgRemoved = null; // 智能去背景结果
+        let previewOriginalData = null; // 去背景前的原始压缩图（全身类型用）
 
         const config = {
             clothes: { types: ['全身','上衣','裤子','半身裙','外套','连衣裙','套装','鞋子'], icon: '👔' },
@@ -2265,6 +2279,7 @@
                     imgTransform.scale = imgTransforms[id].scale;
                     imgTransform.x = imgTransforms[id].x;
                     imgTransform.y = imgTransforms[id].y;
+                    imgTransform.rotation = imgTransforms[id].rotation || 0;
                 } else {
                     // 没有保存的参数则重置
                     resetImageTransform();
@@ -2352,6 +2367,7 @@
 
             // 清空智能去背景结果
             previewBgRemoved = null;
+            previewOriginalData = null;
 
             // 清空文件输入
             fileInput.value = '';
@@ -2362,19 +2378,28 @@
             scale: 1,
             x: 0,
             y: 0,
+            rotation: 0,
             isDragging: false,
             startX: 0,
             startY: 0,
-            enabled: false  // 默认禁用编辑，需要点击编辑按钮后才启用
+            enabled: false
         };
+
+        // 裁剪框状态（相对于容器像素）
+        let cropRect = { x: 0, y: 0, w: 0, h: 0 };
+        let cropDragging = null; // null | 'move' | 'nw' | 'ne' | 'sw' | 'se'
+        let cropStart = { x: 0, y: 0, rx: 0, ry: 0, rw: 0, rh: 0 };
 
         // 启用图片编辑功能
         function enableImageEdit() {
             imgTransform.enabled = true;
             document.getElementById('editImageBtn').classList.add('hidden');
+            document.getElementById('rotateControl').classList.remove('hidden');
+            document.getElementById('cropOverlay').classList.remove('hidden');
+            initCropRect();
             setupImageGestures();
-            // 显示提示
-            showToast('现在可以自由拖动和缩放图片');
+            setupCropGestures();
+            showToast('拖动裁剪框、滑动旋转角度');
         }
 
         // 显示提示信息
@@ -2384,6 +2409,109 @@
             toast.textContent = message;
             document.body.appendChild(toast);
             setTimeout(() => toast.remove(), 2000);
+        }
+
+        // 裁剪框
+        function initCropRect() {
+            const container = document.getElementById('previewWrapper');
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            const margin = 0.1;
+            cropRect = {
+                x: w * margin,
+                y: h * margin,
+                w: w * (1 - margin * 2),
+                h: h * (1 - margin * 2)
+            };
+            updateCropOverlay();
+        }
+
+        function updateCropOverlay() {
+            const overlay = document.getElementById('cropOverlay');
+            overlay.style.left = cropRect.x + 'px';
+            overlay.style.top = cropRect.y + 'px';
+            overlay.style.width = cropRect.w + 'px';
+            overlay.style.height = cropRect.h + 'px';
+        }
+
+        function setupCropGestures() {
+            const overlay = document.getElementById('cropOverlay');
+
+            overlay.onpointerdown = function(e) {
+                if (!imgTransform.enabled) return;
+                e.preventDefault();
+                e.stopPropagation();
+
+                const target = e.target;
+                if (target === overlay) {
+                    cropDragging = 'move';
+                } else if (target.style.cursor === 'nw-resize') {
+                    cropDragging = 'nw';
+                } else if (target.style.cursor === 'ne-resize') {
+                    cropDragging = 'ne';
+                } else if (target.style.cursor === 'sw-resize') {
+                    cropDragging = 'sw';
+                } else if (target.style.cursor === 'se-resize') {
+                    cropDragging = 'se';
+                } else {
+                    return;
+                }
+
+                cropStart = { x: e.clientX, y: e.clientY, rx: cropRect.x, ry: cropRect.y, rw: cropRect.w, rh: cropRect.h };
+                overlay.setPointerCapture(e.pointerId);
+            };
+
+            overlay.onpointermove = function(e) {
+                if (!cropDragging || !imgTransform.enabled) return;
+                const dx = e.clientX - cropStart.x;
+                const dy = e.clientY - cropStart.y;
+
+                const container = document.getElementById('previewWrapper');
+                const cw = container.clientWidth;
+                const ch = container.clientHeight;
+                const minW = cw * 0.15;
+                const minH = ch * 0.15;
+
+                let nx = cropStart.rx, ny = cropStart.ry, nw = cropStart.rw, nh = cropStart.rh;
+
+                switch (cropDragging) {
+                    case 'move':
+                        nx = Math.max(0, Math.min(cw - nw, cropStart.rx + dx));
+                        ny = Math.max(0, Math.min(ch - nh, cropStart.ry + dy));
+                        break;
+                    case 'nw':
+                        nx = Math.max(0, Math.min(cropStart.rx + cropStart.rw - minW, cropStart.rx + dx));
+                        ny = Math.max(0, Math.min(cropStart.ry + cropStart.rh - minH, cropStart.ry + dy));
+                        nw = cropStart.rx + cropStart.rw - nx;
+                        nh = cropStart.ry + cropStart.rh - ny;
+                        break;
+                    case 'ne':
+                        nx = cropStart.rx;
+                        ny = Math.max(0, Math.min(cropStart.ry + cropStart.rh - minH, cropStart.ry + dy));
+                        nw = Math.max(minW, Math.min(cw - nx, cropStart.rw + dx));
+                        nh = cropStart.ry + cropStart.rh - ny;
+                        break;
+                    case 'sw':
+                        nx = Math.max(0, Math.min(cropStart.rx + cropStart.rw - minW, cropStart.rx + dx));
+                        ny = cropStart.ry;
+                        nw = cropStart.rx + cropStart.rw - nx;
+                        nh = Math.max(minH, Math.min(ch - ny, cropStart.rh + dy));
+                        break;
+                    case 'se':
+                        nx = cropStart.rx;
+                        ny = cropStart.ry;
+                        nw = Math.max(minW, Math.min(cw - nx, cropStart.rw + dx));
+                        nh = Math.max(minH, Math.min(ch - ny, cropStart.rh + dy));
+                        break;
+                }
+
+                cropRect = { x: Math.round(nx), y: Math.round(ny), w: Math.round(nw), h: Math.round(nh) };
+                updateCropOverlay();
+            };
+
+            overlay.onpointerup = function(e) {
+                cropDragging = null;
+            };
         }
 
         function setupImageGestures() {
@@ -2476,16 +2604,28 @@
 
         function applyImageTransform() {
             const img = document.getElementById('previewImg');
-            img.style.transform = `translate(${imgTransform.x}px, ${imgTransform.y}px) scale(${imgTransform.scale})`;
+            img.style.transform = `translate(${imgTransform.x}px, ${imgTransform.y}px) scale(${imgTransform.scale}) rotate(${imgTransform.rotation}deg)`;
+        }
+
+        function setRotation(deg) {
+            const val = parseFloat(deg);
+            imgTransform.rotation = val;
+            document.getElementById('rotateSlider').value = val;
+            applyImageTransform();
+            updateCropOverlay();
         }
 
         function resetImageTransform() {
             imgTransform.scale = 1;
             imgTransform.x = 0;
             imgTransform.y = 0;
+            imgTransform.rotation = 0;
             imgTransform.isDragging = false;
-            imgTransform.enabled = false;  // 重置时禁用编辑
-            // 显示编辑按钮
+            imgTransform.enabled = false;
+            document.getElementById('rotateSlider').value = 0;
+            document.getElementById('rotateControl').classList.add('hidden');
+            document.getElementById('cropOverlay').classList.add('hidden');
+            cropDragging = null;
             const editBtn = document.getElementById('editImageBtn');
             if (editBtn) editBtn.classList.remove('hidden');
             applyImageTransform();
@@ -2497,58 +2637,103 @@
 
             if (!img.naturalWidth) return null;
 
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-
-            // 输出固定 600x800 (3:4 比例)
-            canvas.width = 600;
-            canvas.height = 800;
-
+            const sw = img.naturalWidth;
+            const sh = img.naturalHeight;
             const containerRect = container.getBoundingClientRect();
+            const cw = containerRect.width;
+            const ch = containerRect.height;
             const scale = imgTransform.scale;
+            const rotation = imgTransform.rotation;
+            const rad = rotation * Math.PI / 180;
 
-            // 计算 object-fit: cover 下的图片显示尺寸（与浏览器渲染一致）
-            const imgRatio = img.naturalWidth / img.naturalHeight;
-            const containerRatio = containerRect.width / containerRect.height;
-
+            // object-fit: cover 的显示尺寸
+            const imgRatio = sw / sh;
+            const containerRatio = cw / ch;
             let displayWidth, displayHeight, initialX, initialY;
             if (imgRatio > containerRatio) {
-                // 图片更宽，按高度填充，左右被裁剪
-                displayHeight = containerRect.height;
+                displayHeight = ch;
                 displayWidth = displayHeight * imgRatio;
-                initialX = (containerRect.width - displayWidth) / 2;
+                initialX = (cw - displayWidth) / 2;
                 initialY = 0;
             } else {
-                // 图片更高或等比例，按宽度填充，上下被裁剪
-                displayWidth = containerRect.width;
+                displayWidth = cw;
                 displayHeight = displayWidth / imgRatio;
                 initialX = 0;
-                initialY = (containerRect.height - displayHeight) / 2;
+                initialY = (ch - displayHeight) / 2;
             }
 
-            // 计算相对于原始图片的缩放比例
-            const sourceScale = img.naturalWidth / displayWidth;
+            // 如果编辑模式启用，使用裁剪框；否则使用整个容器
+            const useCrop = imgTransform.enabled && cropRect.w > 0 && cropRect.h > 0;
+            const cr = useCrop ? cropRect : { x: 0, y: 0, w: cw, h: ch };
 
-            // 计算可见区域的裁剪（考虑手势变换和 object-fit: cover 的初始偏移）
-            // 实际显示的图片位置 = 初始偏移 + 手势位移
-            const displayedX = initialX + imgTransform.x;
-            const displayedY = initialY + imgTransform.y;
+            // 映射：容器坐标 → 图片显示坐标 → 原始图片坐标
+            const sourceScale = sw / displayWidth;
 
-            // 计算从原始图片的哪个位置开始裁剪
-            const sourceX = -displayedX * sourceScale / scale;
-            const sourceY = -displayedY * sourceScale / scale;
-            const sourceWidth = containerRect.width * sourceScale / scale;
-            const sourceHeight = containerRect.height * sourceScale / scale;
+            // 裁剪框在容器中的位置，映射到显示图片坐标（考虑手势位移和 initial offset）
+            const cropInDisplayX = (cr.x - initialX - imgTransform.x) / scale;
+            const cropInDisplayY = (cr.y - initialY - imgTransform.y) / scale;
+            const cropInDisplayW = cr.w / scale;
+            const cropInDisplayH = cr.h / scale;
 
-            // 绘制裁剪后的图片到 canvas
-            ctx.drawImage(
+            // 映射到原始图片坐标
+            const sourceX = cropInDisplayX * sourceScale;
+            const sourceY = cropInDisplayY * sourceScale;
+            const sourceW = cropInDisplayW * sourceScale;
+            const sourceH = cropInDisplayH * sourceScale;
+
+            // 输出 600x800
+            const outW = 600, outH = 800;
+
+            // 大画布：容纳旋转后的裁剪区域
+            const diag = Math.sqrt(sourceW * sourceW + sourceH * sourceH);
+            const tmpSize = Math.ceil(diag + 100);
+
+            const tmp = document.createElement('canvas');
+            tmp.width = tmpSize;
+            tmp.height = tmpSize;
+            const tctx = tmp.getContext('2d');
+
+            // 在 tmp 中心旋转，把裁剪区域画到中间
+            tctx.translate(tmpSize / 2, tmpSize / 2);
+            tctx.rotate(rad);
+            tctx.drawImage(
                 img,
                 Math.max(0, sourceX), Math.max(0, sourceY),
-                Math.min(img.naturalWidth, sourceWidth), Math.min(img.naturalHeight, sourceHeight),
-                0, 0, 600, 800
+                Math.min(sw - sourceX, sourceW), Math.min(sh - sourceY, sourceH),
+                -sourceW / 2, -sourceH / 2, sourceW, sourceH
             );
 
-            return canvas.toDataURL('image/png');
+            // 输出 canvas
+            const out = document.createElement('canvas');
+            out.width = outW;
+            out.height = outH;
+            const octx = out.getContext('2d');
+            octx.fillStyle = '#ffffff';
+            octx.fillRect(0, 0, outW, outH);
+
+            // 裁剪旋转后中间的有效区域
+            const centerX = tmpSize / 2 - sourceW / 2;
+            const centerY = tmpSize / 2 - sourceH / 2;
+            octx.drawImage(
+                tmp,
+                centerX, centerY, sourceW, sourceH,
+                0, 0, outW, outH
+            );
+
+            return out.toDataURL('image/png');
+        }
+
+        // 对指定图片来源应用当前变换（旋转+裁剪），输出 600x800
+        async function renderWithTransform(imageUrl) {
+            const img = new Image();
+            img.src = imageUrl;
+            await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
+            const origPreviewImg = document.getElementById('previewImg');
+            const origSrc = origPreviewImg.src;
+            origPreviewImg.src = imageUrl;
+            const result = getTransformedImageData();
+            origPreviewImg.src = origSrc;
+            return result;
         }
 
         // 移除白色背景，将白色/近白色像素转为透明
@@ -2692,18 +2877,17 @@
 
                 // 智能去背景
                 previewBgRemoved = null;
+                previewOriginalData = compressedData;
                 if (window.removeBackgroundSmart) {
                     removeBackgroundSmart(compressedData).then(bgRemovedData => {
                         // 更新预览为去背景版本
                         preview.src = bgRemovedData;
-                        preview.dataset.original = bgRemovedData;
                         previewBgRemoved = bgRemovedData;
                         // 重置编辑状态（新图片替代了原图）
                         resetImageTransform();
                         console.log('Background removed successfully');
                     }).catch(err => {
                         console.warn('Background removal failed, using original:', err);
-                        // 回退到旧方法的结果
                         previewBgRemoved = null;
                     });
                 }
@@ -2741,23 +2925,31 @@
 
                 // 保存图片（应用手势变换 + 移除白色背景）
                 const previewImg = document.getElementById('previewImg');
+                const isFullBody = typeValue === '全身';
                 if(previewImg) {
-                    const transformedData = getTransformedImageData();
+                    const transformedData = isFullBody && previewOriginalData
+                        ? await renderWithTransform(previewOriginalData)
+                        : getTransformedImageData();
                     if(transformedData) {
-                        // 智能去背景已处理，直接用；否则回退到白色阈值法
-                        imgs[id] = previewBgRemoved ? transformedData : await removeWhiteBackground(transformedData);
-                        // 同时保存原始图片用于重新编辑
-                        if(previewImg.dataset.original) {
+                        // 全身：原图直出；其他：智能去背景或白色阈值法
+                        if (isFullBody) {
+                            imgs[id] = transformedData;
+                        } else {
+                            imgs[id] = previewBgRemoved ? transformedData : await removeWhiteBackground(transformedData);
+                        }
+                        if(isFullBody && previewOriginalData) {
+                            originalImgs[id] = previewOriginalData;
+                        } else if(previewImg.dataset.original) {
                             originalImgs[id] = previewImg.dataset.original;
                         }
-                        // 保存裁剪参数，用于编辑时恢复状态
                         imgTransforms[id] = {
                             scale: imgTransform.scale,
                             x: imgTransform.x,
-                            y: imgTransform.y
+                            y: imgTransform.y,
+                            rotation: imgTransform.rotation || 0
                         };
                     } else if(previewImg.dataset.data) {
-                        imgs[id] = previewBgRemoved ? previewImg.dataset.data : await removeWhiteBackground(previewImg.dataset.data);
+                        imgs[id] = isFullBody ? previewImg.dataset.data : (previewBgRemoved ? previewImg.dataset.data : await removeWhiteBackground(previewImg.dataset.data));
                     }
                 }
 
