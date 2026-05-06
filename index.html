@@ -30,7 +30,7 @@
         .tag:active { transform: scale(0.96); }
         .tag-s { height: 38px; padding: 0 18px; border-radius: 1rem; white-space: nowrap; }
         .tag-l { min-height: 72px; border-radius: 1.5rem; flex-direction: column; padding: 12px; }
-        .tag.selected { background: #ffffff; border: 1.5px solid #9ca3af; }
+        .tag.selected { background: #ffffff; border: 1.7px solid #8b919a; }
         .tag-t { font-weight: 700; font-size: 12px; color: #6b7280; }
         .tag.selected .tag-t { color: #111827; }
         .tag-c { font-size: 10px; font-weight: 800; margin-top: 4px; color: #9ca3af; }
@@ -2358,11 +2358,11 @@
         function selectWizardGender(gender) {
             wizardGender = gender;
             document.querySelectorAll('[id^="wizGender"]').forEach(b => {
-                b.classList.remove('bg-white', 'border', 'border-gray-400', 'text-black');
+                b.classList.remove('bg-white', 'border-2', 'border-gray-400', 'text-black');
                 b.classList.add('bg-gray-50', 'border', 'border-gray-200');
             });
             const btn = document.getElementById('wizGender' + (gender === '女' ? 'F' : gender === '男' ? 'M' : 'N'));
-            if (btn) { btn.classList.remove('bg-gray-50', 'border', 'border-gray-200'); btn.classList.add('bg-white', 'border', 'border-gray-400', 'text-black'); }
+            if (btn) { btn.classList.remove('bg-gray-50', 'border', 'border-gray-200'); btn.classList.add('bg-white', 'border-2', 'border-gray-400', 'text-black'); }
             const nextBtn = document.getElementById('wizardNextBtn1');
             nextBtn.classList.remove('opacity-30', 'pointer-events-none');
         }
