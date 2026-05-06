@@ -29,9 +29,9 @@
         .tag:active { transform: scale(0.96); }
         .tag-s { height: 38px; padding: 0 18px; border-radius: 1rem; white-space: nowrap; }
         .tag-l { min-height: 72px; border-radius: 1.5rem; flex-direction: column; padding: 12px; }
-        .tag.selected { background: #111827; transform: scale(1.05); border-color: #111827; box-shadow: 0 8px 20px -6px rgba(0,0,0,0.15); }
+        .tag.selected { background: #ffffff; border: 2px solid #111827; }
         .tag-t { font-weight: 700; font-size: 12px; color: #6b7280; }
-        .tag.selected .tag-t { color: #ffffff; }
+        .tag.selected .tag-t { color: #111827; }
         .tag-c { font-size: 10px; font-weight: 800; margin-top: 4px; color: #9ca3af; }
         .tab { position: relative; padding-bottom: 12px; font-size: 15px; font-weight: 800; transition: all 0.3s; }
         .tab.active { color: #000; } .tab:not(.active) { color: #d1d5db; }
@@ -609,24 +609,20 @@
                 <div class="space-y-5">
                     <div>
                         <label class="text-xs font-black uppercase tracking-widest text-gray-400 block mb-3">风格偏好（多选）</label>
-                        <div id="wizStyles" class="flex flex-wrap gap-2"></div>
-                        <div class="mt-2 flex gap-2">
+                        <div id="wizStyles" class="flex overflow-x-auto gap-2 flex-nowrap pb-2"></div>
+                        <div id="wizCustomStyleRow" class="mt-2 flex gap-2 hidden">
                             <input type="text" id="wizCustomStyle" placeholder="自定义风格..." class="flex-1 py-2 px-4 rounded-xl text-sm font-semibold">
                             <button onclick="addCustomPref('styles')" class="py-2 px-4 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold active:scale-95 transition-transform">添加</button>
                         </div>
                     </div>
                     <div>
                         <label class="text-xs font-black uppercase tracking-widest text-gray-400 block mb-3">适用温度（多选）</label>
-                        <div id="wizTemps" class="flex flex-wrap gap-2"></div>
-                        <div class="mt-2 flex gap-2">
-                            <input type="text" id="wizCustomTemp" placeholder="自定义温度..." class="flex-1 py-2 px-4 rounded-xl text-sm font-semibold">
-                            <button onclick="addCustomPref('temps')" class="py-2 px-4 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold active:scale-95 transition-transform">添加</button>
-                        </div>
+                        <div id="wizTemps" class="flex overflow-x-auto gap-2 flex-nowrap pb-2"></div>
                     </div>
                     <div>
                         <label class="text-xs font-black uppercase tracking-widest text-gray-400 block mb-3">适用场合（多选）</label>
-                        <div id="wizScenes" class="flex flex-wrap gap-2"></div>
-                        <div class="mt-2 flex gap-2">
+                        <div id="wizScenes" class="flex overflow-x-auto gap-2 flex-nowrap pb-2"></div>
+                        <div id="wizCustomSceneRow" class="mt-2 flex gap-2 hidden">
                             <input type="text" id="wizCustomScene" placeholder="自定义场合..." class="flex-1 py-2 px-4 rounded-xl text-sm font-semibold">
                             <button onclick="addCustomPref('scenes')" class="py-2 px-4 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold active:scale-95 transition-transform">添加</button>
                         </div>
@@ -681,7 +677,7 @@
                 scenes: ['日常','通勤','运动','聚会','旅行']
             }
         };
-        const tempOptions = ['0°以下','0-10°','10-20°','20-30°','30°以上'];
+        const tempOptions = ['35℃以上','28-34℃','20-27℃','13-19℃','10-12℃','10℃以下'];
 
         const config = {
             clothes: { types: ['全身','上衣','裤子','半身裙','外套','连衣裙','套装','鞋子'], icon: '👔' },
@@ -2397,10 +2393,14 @@
                 wizardSelectedPrefs[type].forEach(v => {
                     if (!defaultOpts.includes(v)) defaultOpts.push(v);
                 });
-                container.innerHTML = defaultOpts.map(v => {
+                let html = defaultOpts.map(v => {
                     const selected = wizardSelectedPrefs[type].includes(v);
                     return `<button onclick="togglePrefChip('${type}','${v.replace(/'/g, "\\'")}')" class="tag tag-s ${selected ? 'selected' : ''}">${v}</button>`;
                 }).join('');
+                if (type !== 'temps') {
+                    html += `<button onclick="toggleCustomInput('${type}')" class="tag tag-s bg-white border-dashed !text-gray-400 shrink-0">+ 自定义</button>`;
+                }
+                container.innerHTML = html;
             });
         }
 
@@ -2414,15 +2414,26 @@
             renderPrefChips();
         }
 
+        function toggleCustomInput(type) {
+            const t = type.charAt(0).toUpperCase() + type.slice(1);
+            const row = document.getElementById('wizCustom' + t + 'Row');
+            const input = document.getElementById('wizCustom' + t);
+            row.classList.toggle('hidden');
+            if (!row.classList.contains('hidden')) {
+                input.focus();
+            }
+        }
+
         function addCustomPref(type) {
-            const inputId = type === 'styles' ? 'wizCustomStyle' : type === 'temps' ? 'wizCustomTemp' : 'wizCustomScene';
-            const input = document.getElementById(inputId);
+            const t = type.charAt(0).toUpperCase() + type.slice(1);
+            const input = document.getElementById('wizCustom' + t);
             const val = input.value.trim();
             if (!val) return;
             if (!wizardSelectedPrefs[type].includes(val)) {
                 wizardSelectedPrefs[type].push(val);
             }
             input.value = '';
+            document.getElementById('wizCustom' + t + 'Row').classList.add('hidden');
             renderPrefChips();
         }
 
