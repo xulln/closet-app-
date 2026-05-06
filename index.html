@@ -3470,11 +3470,18 @@
         // 启动时预加载模型
         preload({ model: MODEL, output: { format: 'image/png' } }).then(() => {
             console.log('Background removal model preloaded');
-        }).catch(() => {});
+        }).catch(err => {
+            console.warn('Model preload failed:', err.message);
+        });
 
         window.removeBackgroundSmart = async function(imageDataUrl, onProgress) {
             const loadingEl = document.getElementById('bgRemovalLoading');
             const progressEl = document.getElementById('bgRemovalProgress');
+
+            // 15 秒超时
+            const timeout = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('AI processing timeout')), 15000)
+            );
 
             try {
                 if (loadingEl) loadingEl.classList.remove('hidden');
@@ -3483,15 +3490,18 @@
                 const resp = await fetch(imageDataUrl);
                 const blob = await resp.blob();
 
-                const resultBlob = await imglyRemoveBackground(blob, {
-                    model: MODEL,
-                    output: { format: 'image/png' },
-                    progress: (key, current, total) => {
-                        if (progressEl) {
-                            progressEl.textContent = `加载 ${key}: ${Math.round(current / 1024 / 1024)}MB / ${Math.round(total / 1024 / 1024)}MB`;
+                const resultBlob = await Promise.race([
+                    imglyRemoveBackground(blob, {
+                        model: MODEL,
+                        output: { format: 'image/png' },
+                        progress: (key, current, total) => {
+                            if (progressEl) {
+                                progressEl.textContent = `加载 ${key}: ${Math.round(current / 1024 / 1024)}MB / ${Math.round(total / 1024 / 1024)}MB`;
+                            }
                         }
-                    }
-                });
+                    }),
+                    timeout
+                ]);
 
                 if (progressEl) progressEl.textContent = '合成中…';
 
