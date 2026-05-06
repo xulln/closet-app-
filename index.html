@@ -3066,8 +3066,8 @@
             btnText.textContent = '处理中…';
             btn.disabled = true;
 
-            // 优先 AI，失败自动降级到白色阈值
-            if (window.removeBackgroundSmart) {
+            // 优先 AI（模型就绪才尝试），失败自动降级到白色阈值
+            if (window.removeBackgroundSmart && window.aiModelReady) {
                 try {
                     result = await removeBackgroundSmart(aiInput);
                     console.log('AI background removed');
@@ -3724,25 +3724,33 @@
         const imglyRemoveBackground = imglyBackgroundRemoval.default || imglyBackgroundRemoval.removeBackground || imglyBackgroundRemoval;
         const { preload } = imglyBackgroundRemoval;
 
-        // 配置 ONNX Runtime
+        // 配置 ONNX Runtime（尝试多个 CDN）
         ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/";
 
-        const MODEL = 'isnet_quint8'; // 40MB，比 fp16 快一半
+        const MODEL = 'isnet_quint8';
+
+        // 模型就绪标记
+        window.aiModelReady = false;
 
         // 启动时预加载模型
         preload({ model: MODEL, output: { format: 'image/png' } }).then(() => {
-            console.log('Background removal model preloaded');
+            window.aiModelReady = true;
+            console.log('AI background removal ready');
         }).catch(err => {
-            console.warn('Model preload failed:', err.message);
+            console.warn('AI model preload failed:', err.message);
         });
 
-        window.removeBackgroundSmart = async function(imageDataUrl, onProgress) {
+        window.removeBackgroundSmart = async function(imageDataUrl) {
+            if (!window.aiModelReady) {
+                throw new Error('Model not loaded');
+            }
+
             const loadingEl = document.getElementById('bgRemovalLoading');
             const progressEl = document.getElementById('bgRemovalProgress');
 
-            // 15 秒超时
+            // 8 秒超时
             const timeout = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('AI processing timeout')), 15000)
+                setTimeout(() => reject(new Error('AI processing timeout')), 8000)
             );
 
             try {
