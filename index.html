@@ -3097,9 +3097,16 @@
 
             if (!result) {
                 try {
-                    btnText.textContent = '白色去底中…';
-                    result = await removeWhiteBackground(previewOriginalData || preview.src, 220);
-                    console.log('White threshold background removed');
+                    btnText.textContent = '去底处理中…';
+                    const bgResult = await removeWhiteBackground(previewOriginalData || preview.src, 220);
+                    result = bgResult.dataUrl;
+                    console.log(`Background removed: ${bgResult.removedCount} pixels, bg=${bgResult.bgColor}`);
+                    if (bgResult.removedCount === 0) {
+                        btnText.textContent = '移除背景';
+                        btn.disabled = false;
+                        showToast('未检测到纯色背景，建议使用纯色背景拍摄');
+                        return;
+                    }
                 } catch (err) {
                     console.warn('White threshold also failed:', err.message);
                     btnText.textContent = '移除背景';
@@ -3221,31 +3228,71 @@
             return result;
         }
 
-        // 移除白色背景，将白色/近白色像素转为透明
-        function removeWhiteBackground(imageDataUrl, threshold = 235) {
+        // 智能去背景：检测四角主色调，移除相近的背景像素
+        function removeWhiteBackground(imageDataUrl, threshold = 220) {
             return new Promise((resolve, reject) => {
                 const img = new Image();
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
+                    const w = img.width, h = img.height;
+                    canvas.width = w;
+                    canvas.height = h;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0);
 
-                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const imageData = ctx.getImageData(0, 0, w, h);
                     const data = imageData.data;
 
+                    // 采样四角像素，检测背景色
+                    const sampleSize = Math.min(20, Math.floor(w / 4), Math.floor(h / 4));
+                    let bgR = 0, bgG = 0, bgB = 0, bgCount = 0;
+                    const corners = [
+                        [0, 0], [w - sampleSize, 0],
+                        [0, h - sampleSize], [w - sampleSize, h - sampleSize]
+                    ];
+                    corners.forEach(([sx, sy]) => {
+                        for (let y = sy; y < sy + sampleSize && y < h; y++) {
+                            for (let x = sx; x < sx + sampleSize && x < w; x++) {
+                                const i = (y * w + x) * 4;
+                                bgR += data[i];
+                                bgG += data[i + 1];
+                                bgB += data[i + 2];
+                                bgCount++;
+                            }
+                        }
+                    });
+                    bgR = Math.round(bgR / bgCount);
+                    bgG = Math.round(bgG / bgCount);
+                    bgB = Math.round(bgB / bgCount);
+
+                    // 背景色亮度：低于 100 说明不是纯色背景，降级为白色阈值
+                    const bgBrightness = (bgR + bgG + bgB) / 3;
+                    const useSmartBg = bgBrightness > 100;
+
+                    let removedCount = 0;
+                    const colorThreshold = 40; // 颜色距离阈值
+
                     for (let i = 0; i < data.length; i += 4) {
-                        const r = data[i];
-                        const g = data[i + 1];
-                        const b = data[i + 2];
-                        if (r > threshold && g > threshold && b > threshold) {
+                        const r = data[i], g = data[i + 1], b = data[i + 2];
+                        let shouldRemove = false;
+                        if (useSmartBg) {
+                            // 计算与背景色的欧几里得距离
+                            const dr = r - bgR, dg = g - bgG, db = b - bgB;
+                            const dist = Math.sqrt(dr * dr + dg * dg + db * db);
+                            shouldRemove = dist < colorThreshold;
+                        } else {
+                            // 降级：纯白阈值
+                            shouldRemove = r > threshold && g > threshold && b > threshold;
+                        }
+                        if (shouldRemove) {
                             data[i + 3] = 0;
+                            removedCount++;
                         }
                     }
 
                     ctx.putImageData(imageData, 0, 0);
-                    resolve(canvas.toDataURL('image/png'));
+                    const result = canvas.toDataURL('image/png');
+                    resolve({ dataUrl: result, removedCount, bgColor: useSmartBg ? `rgb(${bgR},${bgG},${bgB})` : 'white' });
                 };
                 img.onerror = () => reject(new Error('Failed to load image'));
                 img.src = imageDataUrl;
@@ -3401,7 +3448,7 @@
                         if (isFullBody) {
                             imgs[id] = transformedData;
                         } else {
-                            imgs[id] = previewBgRemoved ? transformedData : await removeWhiteBackground(transformedData);
+                            imgs[id] = previewBgRemoved ? transformedData : (await removeWhiteBackground(transformedData)).dataUrl;
                         }
                         if(isFullBody && previewOriginalData) {
                             originalImgs[id] = previewOriginalData;
@@ -3415,7 +3462,7 @@
                             rotation: imgTransform.rotation || 0
                         };
                     } else if(previewImg.dataset.data) {
-                        imgs[id] = isFullBody ? previewImg.dataset.data : (previewBgRemoved ? previewImg.dataset.data : await removeWhiteBackground(previewImg.dataset.data));
+                        imgs[id] = isFullBody ? previewImg.dataset.data : (previewBgRemoved ? previewImg.dataset.data : (await removeWhiteBackground(previewImg.dataset.data)).dataUrl);
                     }
                 }
 
@@ -3730,22 +3777,27 @@
 
         // 模型就绪标记
         window.aiModelReady = false;
-        window.aiModelLoading = false;
+        window.aiModelLoading = true;
 
         // 启动时预加载模型（15 秒超时）
-        window.aiModelLoading = true;
-        Promise.race([
-            preload({ model: MODEL, output: { format: 'image/png' } }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Model download timeout')), 15000))
-        ]).then(() => {
-            window.aiModelReady = true;
-            window.aiModelLoading = false;
-            console.log('AI background removal ready');
-        }).catch(err => {
+        try {
+            Promise.race([
+                preload({ model: MODEL, output: { format: 'image/png' } }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Model download timeout')), 15000))
+            ]).then(() => {
+                window.aiModelReady = true;
+                window.aiModelLoading = false;
+                console.log('AI background removal ready');
+            }).catch(err => {
+                window.aiModelReady = false;
+                window.aiModelLoading = false;
+                console.warn('AI model preload failed:', err.message);
+            });
+        } catch (err) {
             window.aiModelReady = false;
             window.aiModelLoading = false;
-            console.warn('AI model preload failed:', err.message);
-        });
+            console.warn('AI preload not available:', err.message);
+        }
 
         window.removeBackgroundSmart = async function(imageDataUrl) {
             if (!window.aiModelReady) {
