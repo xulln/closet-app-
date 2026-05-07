@@ -1331,7 +1331,7 @@
                                 width: ${(item.width * scale).toFixed(1)}%;
                                 height: ${(item.height * scale).toFixed(1)}%;
                             ">
-                                <img src="${imgs[item.itemId] || ''}" alt="">
+                                <img src="${noBgImgs[item.itemId] || imgs[item.itemId] || ''}" alt="">
                             </div>
                         `).join('')}
                     </div>
