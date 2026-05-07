@@ -269,10 +269,13 @@
 
             <!-- 分类浏览 -->
             <div id="section-closet" class="hidden">
-                <!-- 顶部标签切换 -->
-                <div class="flex bg-gray-100 rounded-2xl p-1 mb-6">
-                    <button id="closetTabClothes" onclick="setClosetTab('clothes')" class="flex-1 py-3 text-sm font-bold rounded-xl bg-white shadow-sm transition-all">服装单品</button>
-                    <button id="closetTabAcc" onclick="setClosetTab('acc')" class="flex-1 py-3 text-sm font-bold rounded-xl text-gray-500 transition-all">配饰单品</button>
+                <!-- 顶部标签切换 + 编辑按钮 -->
+                <div class="flex items-center gap-2 mb-6">
+                    <div class="flex bg-gray-100 rounded-2xl p-1 flex-1">
+                        <button id="closetTabClothes" onclick="setClosetTab('clothes')" class="flex-1 py-3 text-sm font-bold rounded-xl bg-white shadow-sm transition-all">服装单品</button>
+                        <button id="closetTabAcc" onclick="setClosetTab('acc')" class="flex-1 py-3 text-sm font-bold rounded-xl text-gray-500 transition-all">配饰单品</button>
+                    </div>
+                    <button id="closetEditBtn" onclick="toggleCategoryEdit()" class="shrink-0 w-10 h-10 flex items-center justify-center text-xs font-bold text-gray-400 active:text-black transition-colors">编辑</button>
                 </div>
 
                 <!-- 分类网格 -->
@@ -402,6 +405,19 @@
                 </button>
             </div>
             <button onclick="closeModal('choiceModal')" class="w-full mt-6 py-4 text-gray-400 font-bold">取消</button>
+        </div>
+    </div>
+
+    <!-- 图标选择弹窗 -->
+    <div id="iconPickerModal" class="modal" onclick="closeModal('iconPickerModal')">
+        <div class="modal-box !p-6" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-base font-extrabold">选择图标</h3>
+                <button onclick="closeModal('iconPickerModal')" class="text-gray-400 font-bold text-sm">关闭</button>
+            </div>
+            <div id="iconPickerGrid" class="grid grid-cols-5 gap-3 max-h-64 overflow-y-auto">
+                <!-- 动态生成图标选项 -->
+            </div>
         </div>
     </div>
 
@@ -644,7 +660,7 @@
     <script>
         // 数据存储 - IndexedDB
         const DB_NAME = 'ClosetDB';
-        const DB_VERSION = 3;
+        const DB_VERSION = 4;
         let db = null;
 
         // 兼容：localStorage keys（用于数据迁移）
@@ -662,6 +678,11 @@
 
         // 用户偏好
         let userPrefs = { gender: '', styles: [], temps: [], scenes: [], setupDone: false };
+
+        // 自定义分类
+        let customCategories = { clothes: [], acc: [] };
+        let hiddenBuiltIn = { clothes: [], acc: [] };
+        let categoryEditMode = false;
 
         // 性别对应的风格/场合默认选项
         const genderDefaults = {
@@ -771,6 +792,10 @@
                     if (!database.objectStoreNames.contains('preferences')) {
                         database.createObjectStore('preferences', { keyPath: 'id' });
                     }
+                    // 存储自定义分类
+                    if (!database.objectStoreNames.contains('categoryConfig')) {
+                        database.createObjectStore('categoryConfig', { keyPath: 'id' });
+                    }
                 };
             });
         }
@@ -792,6 +817,12 @@
                 // 加载用户偏好
                 const prefs = await getFromStore('preferences', 'userPrefs');
                 if (prefs) { userPrefs = prefs; }
+
+                // 加载自定义分类
+                const cats = await getFromStore('categoryConfig', 'customCategories');
+                if (cats) { customCategories = cats; }
+                const hidden = await getFromStore('categoryConfig', 'hiddenBuiltIn');
+                if (hidden) { hiddenBuiltIn = hidden; }
 
                 // 如果没有数据，尝试从 localStorage 迁移
                 if (items.length === 0) {
@@ -1062,6 +1093,10 @@
                     await saveToStore('outfitDrafts', draft.id, draft);
                 }
 
+                // 保存自定义分类
+                await saveToStore('categoryConfig', 'customCategories', customCategories);
+                await saveToStore('categoryConfig', 'hiddenBuiltIn', hiddenBuiltIn);
+
                 // 更新存储统计
                 await calculateStorageStats();
             } catch (e) {
@@ -1070,7 +1105,7 @@
         }
 
         function exportData() {
-            const data = { items, imgs, outfits, outfitDrafts, exportTime: new Date().toISOString() };
+            const data = { items, imgs, outfits, outfitDrafts, customCategories, hiddenBuiltIn, exportTime: new Date().toISOString() };
             const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -1111,6 +1146,8 @@
                 if (data.ootdOrder) ootdOrder = data.ootdOrder;
                 if (data.outfits) outfits = data.outfits;
                 if (data.outfitDrafts) outfitDrafts = data.outfitDrafts;
+                if (data.customCategories) customCategories = data.customCategories;
+                if (data.hiddenBuiltIn) hiddenBuiltIn = data.hiddenBuiltIn;
 
                 // 保存到 IndexedDB
                 await saveData();
@@ -1657,9 +1694,11 @@
             // 始终排除"全身"类型（全身穿搭图不属于单品选择范畴）
             let filtered = items.filter(i => i.type !== '全身');
             if (selectorFilter === 'clothes') {
-                filtered = filtered.filter(i => config.clothes.types.includes(i.type));
+                const clothesTypes = [...config.clothes.types, ...(customCategories.clothes || []).map(c => c.name)];
+                filtered = filtered.filter(i => clothesTypes.includes(i.type));
             } else if (selectorFilter === 'acc') {
-                filtered = filtered.filter(i => config.acc.types.includes(i.type));
+                const accTypes = [...config.acc.types, ...(customCategories.acc || []).map(c => c.name)];
+                filtered = filtered.filter(i => accTypes.includes(i.type));
             }
 
             if (filtered.length === 0) {
@@ -1704,8 +1743,10 @@
             const itemsToAdd = [...tempSelectedItems].filter(id => !selectedOutfitItems.some(i => i.itemId === id));
             // 按类型排序：服装在前、配饰在后
             itemsToAdd.sort((a, b) => {
-                const aIsClothes = config.clothes.types.includes(items.find(i => i.id === a)?.type);
-                const bIsClothes = config.clothes.types.includes(items.find(i => i.id === b)?.type);
+                const aType = items.find(i => i.id === a)?.type;
+                const bType = items.find(i => i.id === b)?.type;
+                const aIsClothes = config.clothes.types.includes(aType) || (customCategories.clothes || []).some(c => c.name === aType);
+                const bIsClothes = config.clothes.types.includes(bType) || (customCategories.clothes || []).some(c => c.name === bType);
                 return aIsClothes === bIsClothes ? 0 : aIsClothes ? -1 : 1;
             });
             // 2列网格布局
@@ -2116,56 +2157,236 @@
             renderClosetCategories();
 
             // 默认选中第一个分类（过滤掉"全身"）
-            let types = tab === 'clothes' ? config.clothes.types : config.acc.types;
-            types = types.filter(type => type !== '全身');
+            let types = getEffectiveCategories(tab);
             if (types.length > 0) {
                 selectCategory(types[0]);
             }
         }
 
-        // 获取分类图标（SVG 线稿风格）
+        // 完整图标库（线稿风格，48x48 viewBox）
+        const ALL_ICONS = {
+            '上衣': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8 L12 16 L18 18 L18 40 L30 40 L30 18 L36 16 L32 8 Q24 12 16 8Z"/></svg>', keywords: ['上衣','上装','t恤','衬衫','背心','吊带','卫衣','毛衣','针织','短袖','长袖','雪纺','top','shirt','blouse'] },
+            '裤子': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8 L34 8 L36 40 L28 40 L26 20 L22 20 L20 40 L12 40 Z"/></svg>', keywords: ['裤子','长裤','短裤','牛仔裤','西裤','休闲裤','阔腿裤','紧身裤','运动裤','pants','jeans'] },
+            '半身裙': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8 L32 8 L38 40 L10 40 Z"/><line x1="14" y1="20" x2="34" y2="20"/></svg>', keywords: ['半身裙','裙子','短裙','长裙','a字裙','百褶裙','包臀裙','skirt'] },
+            '全身': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M24 4 Q28 4 28 8 Q28 12 24 12 Q20 12 20 8 Q20 4 24 4Z"/><path d="M18 14 L30 14 L36 44 L28 44 L26 30 L22 30 L20 44 L12 44 Z"/></svg>', keywords: ['全身','穿搭'] },
+            '外套': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8 L36 8 L38 40 L10 40 Z"/><line x1="24" y1="8" x2="24" y2="40"/><line x1="14" y1="12" x2="22" y2="18"/><line x1="34" y1="12" x2="26" y2="18"/></svg>', keywords: ['外套','大衣','风衣','夹克','西装','棉衣','羽绒服','棒球服','牛仔外套','皮衣','jacket','coat','blazer'] },
+            '连衣裙': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M24 4 Q28 4 28 8 Q28 12 24 12 Q20 12 20 8 Q20 4 24 4Z"/><path d="M18 14 L30 14 L34 26 L14 26 Z"/><path d="M14 26 L10 44 L22 44 L24 30 L26 44 L38 44 L34 26"/></svg>', keywords: ['连衣裙','连身裙','长裙','dress','onepiece'] },
+            '套装': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8 L34 8 L36 40 L12 40 Z"/><line x1="24" y1="8" x2="24" y2="40"/><path d="M16 12 L24 20 L32 12"/></svg>', keywords: ['套装','西服','制服','suit'] },
+            '鞋子': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 32 Q8 24 20 24 L36 28 Q42 30 42 36 L42 40 L8 40 Z"/><line x1="20" y1="24" x2="20" y2="32"/></svg>', keywords: ['鞋子','鞋','运动鞋','高跟鞋','靴子','凉鞋','拖鞋','帆布鞋','皮鞋','shoes','sneakers','boots','heels'] },
+            '包包': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20 L36 20 L38 42 L10 42 Z"/><path d="M16 20 Q16 8 24 8 Q32 8 32 20"/></svg>', keywords: ['包包','包','手提包','斜挎包','双肩包','单肩包','钱包','bag','purse','backpack'] },
+            '帽子': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 32 L40 32 L36 16 Q24 12 12 16 Z"/><line x1="6" y1="32" x2="42" y2="32"/></svg>', keywords: ['帽子','帽','鸭舌帽','棒球帽','贝雷帽','草帽','毛线帽','hat','cap','beanie'] },
+            '首饰': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="20" r="12"/><path d="M18 28 L14 44 L34 44 L30 28"/></svg>', keywords: ['首饰','珠宝','jewelry'] },
+            '眼镜': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="24" r="8"/><circle cx="34" cy="24" r="8"/><line x1="22" y1="24" x2="26" y2="24"/><line x1="6" y1="24" x2="2" y2="20"/><line x1="42" y1="24" x2="46" y2="20"/></svg>', keywords: ['眼镜','墨镜','glasses','sunglasses'] },
+            '腰带': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="18" width="40" height="12" rx="2"/><rect x="22" y="18" width="4" height="12"/><line x1="4" y1="24" x2="22" y2="24"/><line x1="26" y1="24" x2="44" y2="24"/></svg>', keywords: ['腰带','皮带','belt'] },
+            '发饰': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8 Q24 4 36 8"/><path d="M12 16 Q24 12 36 16"/><path d="M12 24 Q24 20 36 24"/></svg>', keywords: ['发饰','发夹','发带','头饰','hair','hairpin'] },
+            '围巾': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 Q16 12 24 16 Q32 12 40 16"/><path d="M8 24 Q16 20 24 24 Q32 20 40 24"/><path d="M8 32 Q16 28 24 32 Q32 28 40 32"/><path d="M12 16 L12 36"/><path d="M36 16 L36 36"/></svg>', keywords: ['围巾','丝巾','披肩','scarf','shawl'] },
+            '手套': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8 L34 8 Q38 8 38 14 L38 40 L30 40 L30 28 L18 28 L18 40 L10 40 L10 14 Q10 8 14 8Z"/><line x1="24" y1="8" x2="24" y2="28"/></svg>', keywords: ['手套','gloves','mitten'] },
+            '内衣': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16 Q12 8 24 8 Q36 8 36 16 L30 24 L18 24 Z"/><path d="M18 24 L14 40 L24 36 L34 40 L30 24"/></svg>', keywords: ['内衣','文胸','内裤','bra','underwear','lingerie'] },
+            '泳装': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 12 Q14 8 24 8 Q34 8 34 12 L30 28 L18 28 Z"/><path d="M18 28 L14 42 L24 38 L34 42 L30 28"/></svg>', keywords: ['泳装','泳衣','比基尼','swimsuit','bikini','swim'] },
+            '运动服': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8 L34 8 L36 24 L12 24 Z"/><line x1="20" y1="24" x2="20" y2="40"/><line x1="28" y1="24" x2="28" y2="40"/><line x1="16" y1="12" x2="14" y2="20"/><line x1="32" y1="12" x2="34" y2="20"/></svg>', keywords: ['运动服','运动','健身','sportswear','activewear','athletic'] },
+            '睡衣': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8 L32 8 L34 26 L28 26 L28 40 L20 40 L20 26 L14 26 Z"/><line x1="24" y1="8" x2="24" y2="40"/><circle cx="24" cy="14" r="2"/><circle cx="24" cy="20" r="2"/></svg>', keywords: ['睡衣','家居服','pajamas','sleepwear','loungewear'] },
+            '配饰': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="16" r="6"/><path d="M16 24 Q24 20 32 24"/><path d="M18 30 L16 42 L32 42 L30 30"/></svg>', keywords: ['配饰','饰品','accessory'] },
+            '袜子': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 16 L38 16 Q40 16 40 20 L38 42 Q38 44 34 44 L14 44 Q10 44 10 42 L8 20 Q8 16 10 16Z"/><line x1="12" y1="28" x2="20" y2="28"/></svg>', keywords: ['袜子','短袜','长袜','socks'] },
+            '领带': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 8 L28 8 L28 18 L24 22 L20 18 Z"/><path d="M24 22 L24 42"/><path d="M20 42 L28 42"/></svg>', keywords: ['领带','领结','tie','bowtie'] },
+            '手表': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="12" width="20" height="24" rx="4"/><line x1="14" y1="20" x2="34" y2="20"/><line x1="14" y1="28" x2="34" y2="28"/><line x1="24" y1="12" x2="24" y2="8"/><line x1="24" y1="36" x2="24" y2="40"/><line x1="18" y1="8" x2="30" y2="8"/><line x1="18" y1="40" x2="30" y2="40"/></svg>', keywords: ['手表','腕表','watch'] },
+            '戒指': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="28" r="8"/><path d="M26 20 L30 12"/><path d="M22 20 L18 12"/></svg>', keywords: ['戒指','ring'] },
+            '耳环': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="16" r="4"/><path d="M20 18 Q18 24 20 30"/><path d="M28 18 Q30 24 28 30"/><circle cx="20" cy="34" r="2"/><circle cx="28" cy="34" r="2"/></svg>', keywords: ['耳环','耳钉','earrings'] },
+            '项链': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 12 Q24 6 32 12 Q28 16 24 14 Q20 16 16 12Z"/><circle cx="24" cy="20" r="3"/></svg>', keywords: ['项链','吊坠','necklace','pendant'] },
+            '手链': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="24" cy="24" rx="14" ry="8"/><circle cx="24" cy="24" r="3"/></svg>', keywords: ['手链','手镯','bracelet','bangle'] },
+            '胸针': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="22" r="8"/><line x1="24" y1="14" x2="24" y2="8"/><path d="M20 30 L14 40"/><path d="M28 30 L34 40"/></svg>', keywords: ['胸针','别针','brooch','pin'] },
+            '其他': { svg: '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="8"/><line x1="24" y1="12" x2="24" y2="36"/><line x1="12" y1="24" x2="36" y2="24"/></svg>', keywords: ['其他','杂项','other'] }
+        };
+
+        // iconNames 用于图标选择器（按显示顺序排列）
+        const ICON_NAMES = ['上衣','裤子','半身裙','外套','连衣裙','套装','鞋子','包包','帽子','首饰','眼镜','腰带','发饰','围巾','手套','内衣','泳装','运动服','睡衣','袜子','领带','手表','戒指','耳环','项链','手链','胸针','配饰','其他'];
+
+        // 根据分类名获取图标 SVG
         function getCategoryIcon(type) {
-            const icons = {
-                '上衣': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8 L12 16 L18 18 L18 40 L30 40 L30 18 L36 16 L32 8 Q24 12 16 8Z"/></svg>',
-                '裤子': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8 L34 8 L36 40 L28 40 L26 20 L22 20 L20 40 L12 40 Z"/></svg>',
-                '半身裙': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8 L32 8 L38 40 L10 40 Z"/><line x1="14" y1="20" x2="34" y2="20"/></svg>',
-                '全身': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M24 4 Q28 4 28 8 Q28 12 24 12 Q20 12 20 8 Q20 4 24 4Z"/><path d="M18 14 L30 14 L36 44 L28 44 L26 30 L22 30 L20 44 L12 44 Z"/></svg>',
-                '外套': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8 L36 8 L38 40 L10 40 Z"/><line x1="24" y1="8" x2="24" y2="40"/><line x1="14" y1="12" x2="22" y2="18"/><line x1="34" y1="12" x2="26" y2="18"/></svg>',
-                '连衣裙': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M24 4 Q28 4 28 8 Q28 12 24 12 Q20 12 20 8 Q20 4 24 4Z"/><path d="M18 14 L30 14 L34 26 L14 26 Z"/><path d="M14 26 L10 44 L22 44 L24 30 L26 44 L38 44 L34 26"/></svg>',
-                '套装': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8 L34 8 L36 40 L12 40 Z"/><line x1="24" y1="8" x2="24" y2="40"/><path d="M16 12 L24 20 L32 12"/></svg>',
-                '鞋子': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 32 Q8 24 20 24 L36 28 Q42 30 42 36 L42 40 L8 40 Z"/><line x1="20" y1="24" x2="20" y2="32"/></svg>',
-                '全部': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12"/><rect x="18" y="6" width="12" height="12"/><rect x="30" y="6" width="12" height="12"/><rect x="6" y="18" width="12" height="12"/><rect x="18" y="18" width="12" height="12"/><rect x="30" y="18" width="12" height="12"/><rect x="6" y="30" width="12" height="12"/><rect x="18" y="30" width="12" height="12"/><rect x="30" y="30" width="12" height="12"/></svg>',
-                '包包': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20 L36 20 L38 42 L10 42 Z"/><path d="M16 20 Q16 8 24 8 Q32 8 32 20"/></svg>',
-                '帽子': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 32 L40 32 L36 16 Q24 12 12 16 Z"/><line x1="6" y1="32" x2="42" y2="32"/></svg>',
-                '首饰': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="20" r="12"/><path d="M18 28 L14 44 L34 44 L30 28"/></svg>',
-                '眼镜': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="24" r="8"/><circle cx="34" cy="24" r="8"/><line x1="22" y1="24" x2="26" y2="24"/><line x1="6" y1="24" x2="2" y2="20"/><line x1="42" y1="24" x2="46" y2="20"/></svg>',
-                '腰带': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="18" width="40" height="12" rx="2"/><rect x="22" y="18" width="4" height="12"/><line x1="4" y1="24" x2="22" y2="24"/><line x1="26" y1="24" x2="44" y2="24"/></svg>',
-                '发饰': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8 Q24 4 36 8"/><path d="M12 16 Q24 12 36 16"/><path d="M12 24 Q24 20 36 24"/></svg>',
-                '其他': '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="8"/><line x1="24" y1="12" x2="24" y2="36"/><line x1="12" y1="24" x2="36" y2="24"/></svg>'
-            };
-            return icons[type] || '';
+            if (ALL_ICONS[type]) return ALL_ICONS[type].svg;
+            // 检查自定义分类
+            for (const tab of ['clothes', 'acc']) {
+                const found = customCategories[tab].find(c => c.name === type);
+                if (found) return found.icon;
+            }
+            return ALL_ICONS['其他'].svg;
+        }
+
+        // 根据关键词匹配最接近的图标名
+        function matchIconForCategory(name) {
+            if (!name) return '其他';
+            const lower = name.toLowerCase();
+            let best = null;
+            let bestScore = 0;
+            for (const [iconName, data] of Object.entries(ALL_ICONS)) {
+                for (const kw of data.keywords) {
+                    if (lower === kw.toLowerCase()) { return iconName; }
+                    if (lower.includes(kw.toLowerCase()) || kw.toLowerCase().includes(lower)) {
+                        const score = kw.length;
+                        if (score > bestScore) { bestScore = score; best = iconName; }
+                    }
+                }
+            }
+            return best || '其他';
+        }
+
+        // 获取有效分类列表（内置 + 自定义）
+        function getEffectiveCategories(tab) {
+            let types = tab === 'clothes' ? [...config.clothes.types] : [...config.acc.types];
+            types = types.filter(type => type !== '全身');
+            types = types.filter(type => !(hiddenBuiltIn[tab] || []).includes(type));
+            const customs = customCategories[tab] || [];
+            for (const c of customs) {
+                if (!types.includes(c.name)) types.push(c.name);
+            }
+            return types;
+        }
+
+        // 保存自定义分类到 IndexedDB
+        async function saveCustomCategoriesToDB() {
+            if (!db) return;
+            try {
+                await saveToStore('categoryConfig', 'customCategories', customCategories);
+                await saveToStore('categoryConfig', 'hiddenBuiltIn', hiddenBuiltIn);
+            } catch (e) {
+                console.error('保存自定义分类失败:', e);
+            }
+        }
+
+        // 切换分类编辑模式
+        function toggleCategoryEdit() {
+            categoryEditMode = !categoryEditMode;
+            const btn = document.getElementById('closetEditBtn');
+            btn.textContent = categoryEditMode ? '完成' : '编辑';
+            if (categoryEditMode) {
+                btn.classList.remove('text-gray-400');
+                btn.classList.add('text-black','font-extrabold');
+            } else {
+                btn.classList.add('text-gray-400');
+                btn.classList.remove('text-black','font-extrabold');
+            }
+            renderClosetCategories();
+        }
+
+        // 删除/隐藏分类（内置→隐藏，自定义→删除）
+        async function deleteCustomCategory(tab, name) {
+            const isCustom = customCategories[tab].some(c => c.name === name);
+            const msg = isCustom
+                ? `确定删除自定义分类"${name}"吗？`
+                : `确定隐藏内置分类"${name}"吗？\n隐藏后可在设置中恢复。`;
+            if (!confirm(msg)) return;
+
+            if (isCustom) {
+                customCategories[tab] = customCategories[tab].filter(c => c.name !== name);
+            } else {
+                if (!hiddenBuiltIn[tab].includes(name)) {
+                    hiddenBuiltIn[tab].push(name);
+                }
+            }
+            await saveCustomCategoriesToDB();
+
+            if (currentSelectedCategory === name) {
+                currentSelectedCategory = null;
+            }
+            renderClosetCategories();
+            const types = getEffectiveCategories(tab);
+            if (currentSelectedCategory === null && types.length > 0) {
+                selectCategory(types[0]);
+            } else if (currentSelectedCategory !== null) {
+                selectCategory(currentSelectedCategory);
+            }
+        }
+
+        // 添加新分类
+        async function addCustomCategory(tab, name, icon) {
+            if (!name || !name.trim()) return;
+            const trimmed = name.trim();
+            const exists = customCategories[tab].some(c => c.name === trimmed) || config[tab].types.includes(trimmed);
+            if (exists) { alert('该分类已存在'); return; }
+            customCategories[tab].push({ name: trimmed, icon: icon });
+            await saveCustomCategoriesToDB();
+            renderClosetCategories();
+            selectCategory(trimmed);
+        }
+
+        // 弹出添加分类对话框
+        function showAddCategoryPrompt() {
+            const tab = currentClosetTab;
+            const name = prompt('请输入新分类名称：');
+            if (!name || !name.trim()) return;
+            const matchedIconName = matchIconForCategory(name.trim());
+            const matchedSvg = ALL_ICONS[matchedIconName] ? ALL_ICONS[matchedIconName].svg : ALL_ICONS['其他'].svg;
+            const confirmed = confirm(`自动匹配图标：${matchedIconName}\n\n点击"确定"使用此图标，点击"取消"从图标库手动选择。`);
+            if (confirmed) {
+                addCustomCategory(tab, name.trim(), matchedSvg);
+            } else {
+                showIconPicker(tab, name.trim());
+            }
+        }
+
+        // 图标选择器的暂存数据
+        let pendingCategoryTab = '';
+        let pendingCategoryName = '';
+
+        // 显示图标选择器
+        function showIconPicker(tab, name) {
+            pendingCategoryTab = tab;
+            pendingCategoryName = name;
+            const grid = document.getElementById('iconPickerGrid');
+            grid.innerHTML = ICON_NAMES.map(iconName => {
+                const svg = ALL_ICONS[iconName].svg;
+                return `
+                    <div onclick="confirmIconPick('${iconName}')"
+                         class="cursor-pointer rounded-xl p-2 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 active:scale-95 transition-all">
+                        <div class="w-8 h-8 text-gray-700">${svg}</div>
+                        <span class="text-[9px] font-bold text-gray-500 mt-1">${iconName}</span>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('iconPickerModal').classList.add('show');
+        }
+
+        function confirmIconPick(iconName) {
+            const svg = ALL_ICONS[iconName].svg;
+            addCustomCategory(pendingCategoryTab, pendingCategoryName, svg);
+            closeModal('iconPickerModal');
         }
 
         // 渲染分类网格
         function renderClosetCategories() {
-            let types = currentClosetTab === 'clothes' ? config.clothes.types : config.acc.types;
-            // 过滤掉"全身"
-            types = types.filter(type => type !== '全身');
+            let types = getEffectiveCategories(currentClosetTab);
             const container = document.getElementById('closetGrid');
+            const tab = currentClosetTab;
 
-            container.innerHTML = types.map(type => {
+            let html = types.map(type => {
                 const count = items.filter(i => i.type === type).length;
                 const icon = getCategoryIcon(type);
                 const isSelected = currentSelectedCategory === type;
                 return `
-                    <div onclick="selectCategory('${type}')"
-                         class="cursor-pointer rounded-2xl p-2 flex flex-col items-center justify-center transition-all border-2 ${isSelected ? 'bg-white border-black' : 'bg-gray-50 border-transparent'}">
+                    <div onclick="${categoryEditMode ? '' : `selectCategory('${type}')`}"
+                         class="relative cursor-pointer rounded-2xl p-2 flex flex-col items-center justify-center transition-all border-2 ${isSelected ? 'bg-white border-black' : 'bg-gray-50 border-transparent'}">
+                        ${categoryEditMode ? `<button onclick="event.stopPropagation();deleteCustomCategory('${tab}','${type}')" class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-black text-white rounded-full flex items-center justify-center text-[10px] font-bold leading-none z-10 active:scale-90 transition-transform">−</button>` : ''}
                         <div class="w-6 h-6 mb-1 text-gray-700">${icon}</div>
                         <span class="text-[11px] font-bold text-gray-800">${type}</span>
                         <span class="text-[9px] text-gray-400">${count}件</span>
                     </div>
                 `;
             }).join('');
+
+            // 编辑模式下添加"＋ 添加"按钮
+            if (categoryEditMode) {
+                html += `
+                    <div onclick="showAddCategoryPrompt()"
+                         class="cursor-pointer rounded-2xl p-2 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 bg-gray-50 active:scale-95 transition-all">
+                        <div class="w-6 h-6 mb-1 flex items-center justify-center text-gray-400">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 4v16m8-8H4"/></svg>
+                        </div>
+                        <span class="text-[11px] font-bold text-gray-400">添加</span>
+                        <span class="text-[9px] text-gray-300">新分类</span>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
         }
 
         // 选中分类，显示物品列表
@@ -2484,13 +2705,17 @@
             if (mode === 'ootd') {
                 typeSelect.innerHTML = '<option value="全身">全身</option>';
             } else if (mode === 'clothes') {
-                typeSelect.innerHTML = config.clothes.types
-                    .filter(t => t !== '全身')
-                    .map(t => `<option value="${t}">${t}</option>`).join('');
+                let types = config.clothes.types.filter(t => t !== '全身');
+                for (const c of (customCategories.clothes || [])) {
+                    if (!types.includes(c.name)) types.push(c.name);
+                }
+                typeSelect.innerHTML = types.map(t => `<option value="${t}">${t}</option>`).join('');
             } else {
-                typeSelect.innerHTML = config.acc.types
-                    .filter(t => t !== '全身')
-                    .map(t => `<option value="${t}">${t}</option>`).join('');
+                let types = [...config.acc.types.filter(t => t !== '全身')];
+                for (const c of (customCategories.acc || [])) {
+                    if (!types.includes(c.name)) types.push(c.name);
+                }
+                typeSelect.innerHTML = types.map(t => `<option value="${t}">${t}</option>`).join('');
             }
             onTypeChange();
             document.getElementById('addModal').classList.add('show');
@@ -2505,19 +2730,24 @@
             if (item.type === '全身') {
                 currentAddMode = 'ootd';
             } else {
-                currentAddMode = config.clothes.types.includes(item.type) ? 'clothes' : 'acc';
+                const isClothes = config.clothes.types.includes(item.type) || (customCategories.clothes || []).some(c => c.name === item.type);
+                currentAddMode = isClothes ? 'clothes' : 'acc';
             }
             const typeSelect = document.getElementById('itemType');
             if (currentAddMode === 'ootd') {
                 typeSelect.innerHTML = '<option value="全身" selected>全身</option>';
             } else if (currentAddMode === 'clothes') {
-                typeSelect.innerHTML = config.clothes.types
-                    .filter(t => t !== '全身')
-                    .map(t => `<option value="${t}" ${t===item.type?'selected':''}>${t}</option>`).join('');
+                let types = config.clothes.types.filter(t => t !== '全身');
+                for (const c of (customCategories.clothes || [])) {
+                    if (!types.includes(c.name)) types.push(c.name);
+                }
+                typeSelect.innerHTML = types.map(t => `<option value="${t}" ${t===item.type?'selected':''}>${t}</option>`).join('');
             } else {
-                typeSelect.innerHTML = config.acc.types
-                    .filter(t => t !== '全身')
-                    .map(t => `<option value="${t}" ${t===item.type?'selected':''}>${t}</option>`).join('');
+                let types = config.acc.types.filter(t => t !== '全身');
+                for (const c of (customCategories.acc || [])) {
+                    if (!types.includes(c.name)) types.push(c.name);
+                }
+                typeSelect.innerHTML = types.map(t => `<option value="${t}" ${t===item.type?'selected':''}>${t}</option>`).join('');
             }
 
             document.getElementById('itemStyle').value = item.style || '';
@@ -2575,18 +2805,18 @@
 
         // 表单逻辑
         function fillSelects() {
-            const styles = userPrefs.styles.length ? userPrefs.styles : config.style;
-            const temps = userPrefs.temps.length ? userPrefs.temps : config.temp;
-            const scenes = userPrefs.scenes.length ? userPrefs.scenes : config.scene;
+            const styles = userPrefs.styles;
+            const temps = userPrefs.temps;
+            const scenes = userPrefs.scenes;
             document.getElementById('itemStyle').innerHTML = '<option value="">选择风格</option>' + styles.map(s => `<option value="${s}">${s}</option>`).join('');
             document.getElementById('itemTemp').innerHTML = '<option value="">适穿温度</option>' + temps.map(t => `<option value="${t}">${t}</option>`).join('');
             document.getElementById('itemScene').innerHTML = '<option value="">适用场合</option>' + scenes.map(s => `<option value="${s}">${s}</option>`).join('');
         }
 
         function renderFilterTags() {
-            const styles = userPrefs.styles.length ? userPrefs.styles : config.style;
-            const temps = userPrefs.temps.length ? userPrefs.temps : config.temp;
-            const scenes = userPrefs.scenes.length ? userPrefs.scenes : config.scene;
+            const styles = userPrefs.styles;
+            const temps = userPrefs.temps;
+            const scenes = userPrefs.scenes;
 
             function tagHTML(type, value) {
                 const label = type === 'temp' ? value.split(' ')[0] : value;
